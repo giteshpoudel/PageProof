@@ -30,6 +30,9 @@ vlm = [
     "psutil==7.2.2",
 ]
 
+# Client for the vLLM server on the rented GPU
+gpu = ["openai>=1.60"]
+
 [project.scripts]
 pageproof = "pageproof.cli:app"
 

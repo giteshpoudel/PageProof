@@ -1,0 +1,37 @@
+source,title,level,median_cer,mean_cer
+tesseract,On the Origin of Species,0,0.0,0.00058
+tesseract,On the Origin of Species,1,0.00882,0.00918
+tesseract,On the Origin of Species,2,0.02213,0.02184
+tesseract,On the Origin of Species,3,0.03955,0.03957
+tesseract,On the Origin of Species,4,0.0706,0.07259
+tesseract,On the Origin of Species,5,0.31493,0.32563
+tesseract,Paradise Lost,0,0.0,0.0
+tesseract,Paradise Lost,1,0.00289,0.00326
+tesseract,Paradise Lost,2,0.00933,0.00942
+tesseract,Paradise Lost,3,0.02219,0.02214
+tesseract,Paradise Lost,4,0.05916,0.05961
+tesseract,Paradise Lost,5,0.29429,0.33007
+tesseract,Pride and Prejudice,0,0.0,0.00046
+tesseract,Pride and Prejudice,1,0.00783,0.00804
+tesseract,Pride and Prejudice,2,0.01949,0.02021
+tesseract,Pride and Prejudice,3,0.03948,0.03791
+tesseract,Pride and Prejudice,4,0.0742,0.07657
+tesseract,Pride and Prejudice,5,0.35143,0.36481
+tesseract,The Adventures of Sherlock Holmes,0,0.00067,0.00151
+tesseract,The Adventures of Sherlock Holmes,1,0.00777,0.00818
+tesseract,The Adventures of Sherlock Holmes,2,0.01894,0.01937
+tesseract,The Adventures of Sherlock Holmes,3,0.03783,0.03867
+tesseract,The Adventures of Sherlock Holmes,4,0.07847,0.0822
+tesseract,The Adventures of Sherlock Holmes,5,0.36787,0.38476
+tesseract,The Wealth of Nations,0,0.0,6e-05
+tesseract,The Wealth of Nations,1,0.0083,0.00831
+tesseract,The Wealth of Nations,2,0.01964,0.01967
+tesseract,The Wealth of Nations,3,0.03586,0.03541
+tesseract,The Wealth of Nations,4,0.06886,0.06997
+tesseract,The Wealth of Nations,5,0.29691,0.32246
+tesseract,War and Peace,0,0.0039,0.004
+tesseract,War and Peace,1,0.01141,0.01185
+tesseract,War and Peace,2,0.02374,0.02456
+tesseract,War and Peace,3,0.0411,0.04138
+tesseract,War and Peace,4,0.08074,0.08218
+tesseract,War and Peace,5,0.35737,0.36978

@@ -128,7 +128,9 @@ class UnlimitedOCR:
             )
 
 
-_DET = re.compile(r"<\|det\|>.*?<\|/det\|>", re.S)
+# A layout header: an optional region label (<|ref|>text<|/ref|>, the vLLM format)
+# followed by its box (<|det|>...<|/det|>). Both go; the page text follows it.
+_DET = re.compile(r"(<\|ref\|>[^<]*<\|/ref\|>\s*)?<\|det\|>.*?<\|/det\|>", re.S)
 _TAG = re.compile(r"<\|[^|]*\|>")
 _MD = re.compile(r"^\s{0,3}(#{1,6}\s+|[-*+]\s+|>\s+)", re.M)
 

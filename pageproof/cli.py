@@ -34,5 +34,17 @@ def corpus_summary(root: Path = Path("data/corpus")) -> None:
     """))
 
 
+ocr = typer.Typer(help="Run OCR sources over the corpus.")
+app.add_typer(ocr, name="ocr")
+
+
+@ocr.command("tesseract")
+def ocr_tesseract(workers: int = 0) -> None:
+    """Tesseract on every corpus image (resumes; writes data/ocr/tesseract.parquet)."""
+    from pageproof.ocr.runs import run_tesseract
+
+    run_tesseract(workers or None)
+
+
 if __name__ == "__main__":
     app()
