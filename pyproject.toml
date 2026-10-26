@@ -15,6 +15,11 @@ dependencies = [
     "pyarrow>=26.0.0",
     "duckdb>=2.0.0",
     "numpy>=2.5.4",
+    "lancedb>=0.40.0",
+    "sentence-transformers>=5.7.0",
+    "python-dotenv>=1.2.4",
+    "openai>=1.60",
+    "pydantic>=2.14.1",
 ]
 
 [project.optional-dependencies]

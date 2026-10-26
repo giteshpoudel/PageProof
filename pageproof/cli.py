@@ -46,5 +46,60 @@ def ocr_tesseract(workers: int = 0) -> None:
     run_tesseract(workers or None)
 
 
+index = typer.Typer(help="Build the search indexes (one per OCR source x level).")
+app.add_typer(index, name="index")
+
+
+@index.command("build")
+def index_build(source: str = "tesseract", levels: str = "0-5") -> None:
+    """Chunk, embed and index OCR text. --source clean indexes the exact page text (level 0)."""
+    from pageproof.index.store import build_index
+
+    lo, _, hi = levels.partition("-")
+    for level in ([0] if source == "clean" else range(int(lo), int(hi or lo) + 1)):
+        print(f"{source} L{level}: {build_index(source, level)} chunks")
+
+
+@app.command()
+def search(question: str, source: str = "tesseract", level: int = 0, k: int = 5,
+           mode: str = "hybrid") -> None:
+    """Show the passages retrieval finds, without calling the LLM."""
+    from pageproof.qa.retrieve import search as run
+
+    for i, r in enumerate(run(question, source, level, k, mode), 1):
+        print(f"[{i}] {r.chunk.page_id}  {r.chunk.title}, p.{r.chunk.page_no}  score {r.score:.4f}")
+        print(f"    {r.chunk.text[:160]}...")
+
+
+@app.command()
+def ask(question: str, source: str = "tesseract", level: int = 0, k: int = 5,
+        mode: str = "hybrid", crop: bool = True) -> None:
+    """Answer from one OCR source at one degradation level, citing pages; save a highlighted page crop."""
+    import re
+
+    from pageproof.config import DATA
+    from pageproof.qa.answer import ask as run
+    from pageproof.qa.locate import save_crop
+
+    a = run(question, source, level, k, mode)
+    print(f"\n{a.answer}\n")
+    for page_id in a.citations:
+        r = next(p for p in a.passages if p.chunk.page_id == page_id)
+        print(f"  cites {page_id}: {r.chunk.title}, page {r.chunk.page_no}")
+    if a.quote:
+        print(f'  quote: "{a.quote}"')
+    if crop and a.found and a.quote_page:
+        image = next(p.chunk for p in a.passages if p.chunk.page_id == a.quote_page)
+        import duckdb
+
+        path = duckdb.sql(f"select path from '{DATA}/corpus/images.parquet' "
+                          f"where image_id = '{image.image_id}'").fetchall()[0][0]
+        slug = re.sub(r"\W+", "-", question.lower()).strip("-")[:40]
+        out = DATA / "crops" / f"{slug}_{source}_L{level}.png"
+        found = save_crop(path, a.quote, out)
+        print(f"  page image: {out}" + ("" if found else " (quote not located; whole page)"))
+    print(f"  [{a.model}, {a.prompt_tokens} prompt + {a.completion_tokens} completion tokens]")
+
+
 if __name__ == "__main__":
     app()
