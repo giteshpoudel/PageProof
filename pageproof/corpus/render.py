@@ -1,0 +1,104 @@
+"""Render Project Gutenberg HTML editions into page images with exact ground truth.
+
+The HTML is laid out into a PDF with PyMuPDF's Story engine. Because the PDF is
+ours, its text layer is the exact text on each page: that is the ground truth.
+Each page is then rasterized to PNG, which is what the OCR engines see.
+"""
+
+import json
+import re
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+import pymupdf
+import requests
+
+GUTENBERG_HTML = "https://www.gutenberg.org/cache/epub/{id}/pg{id}-images.html"
+USER_AGENT = "PageProof research project (personal, non-commercial)"
+
+# A book-like page: 5.5 x 8.5 in (US trade paperback), 0.75 in margins.
+PAGE = pymupdf.Rect(0, 0, 5.5 * 72, 8.5 * 72)
+MARGIN = 54
+CSS = """
+* { font-family: serif; }
+body { font-size: 11pt; line-height: 1.35; }
+h1, h2, h3 { font-weight: bold; text-align: center; }
+h1 { font-size: 16pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; }
+p { text-align: justify; margin-top: 0; margin-bottom: 6pt; }
+"""
+
+
+@dataclass
+class Page:
+    book_id: int
+    page_no: int  # 1-based, in the rendered PDF
+    image: str  # path to the PNG
+    text: str  # exact text on the page (ground truth)
+
+
+def fetch_html(book_id: int, cache_dir: Path) -> str:
+    """Download a book's HTML edition once and keep it in the cache."""
+    path = cache_dir / f"pg{book_id}.html"
+    if not path.exists():
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        r = requests.get(GUTENBERG_HTML.format(id=book_id), timeout=60,
+                         headers={"User-Agent": USER_AGENT})
+        r.raise_for_status()
+        path.write_text(r.text, encoding="utf-8")
+    return path.read_text(encoding="utf-8")
+
+
+def clean_html(html: str) -> str:
+    """Keep the book body: drop Gutenberg's header and footer, scripts, styles and images."""
+    body = re.search(r"<body[^>]*>(.*)</body>", html, re.S | re.I)
+    html = body.group(1) if body else html
+    for pattern in (
+        r'<section[^>]*id="pg-header".*?</section>',
+        r'<section[^>]*id="pg-footer".*?</section>',
+        r"<script.*?</script>", r"<style.*?</style>",
+        r"<img[^>]*>", r"<figure.*?</figure>",
+        # the print edition's page numbers, e.g. "{4}"
+        r'<span[^>]*class="pagenum"[^>]*>.*?</span>',
+    ):
+        html = re.sub(pattern, "", html, flags=re.S | re.I)
+    return html
+
+
+def render_pdf(html: str, out_pdf: Path) -> int:
+    """Lay the HTML out into book pages; returns the page count."""
+    story = pymupdf.Story(html=html, user_css=CSS)
+    writer = pymupdf.DocumentWriter(str(out_pdf))
+    body = PAGE + (MARGIN, MARGIN, -MARGIN, -MARGIN)
+    pages, more = 0, True
+    while more:
+        device = writer.begin_page(PAGE)
+        more, _ = story.place(body)
+        story.draw(device)
+        writer.end_page()
+        pages += 1
+    writer.close()
+    return pages
+
+
+def render_book(book_id: int, out_dir: Path, first_page: int, n_pages: int,
+                dpi: int = 200) -> list[Page]:
+    """Render pages [first_page, first_page + n_pages) of a book to PNG + ground truth."""
+    book_dir = out_dir / f"pg{book_id}"
+    book_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = book_dir / "book.pdf"
+    if not pdf_path.exists():
+        render_pdf(clean_html(fetch_html(book_id, out_dir / "html")), pdf_path)
+
+    doc = pymupdf.open(pdf_path)
+    pages = []
+    for i in range(first_page - 1, min(first_page - 1 + n_pages, doc.page_count)):
+        page = doc[i]
+        image = book_dir / f"page_{i + 1:04d}.png"
+        page.get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY).save(image)
+        pages.append(Page(book_id, i + 1, str(image), page.get_text("text")))
+    doc.close()
+
+    with open(book_dir / "pages.jsonl", "w", encoding="utf-8") as f:
+        for p in pages:
+            f.write(json.dumps(asdict(p), ensure_ascii=False) + "\n")
+    return pages
