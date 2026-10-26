@@ -25,5 +25,10 @@ def llm_model() -> str:
     return os.getenv("LLM_MODEL", "deepseek-flash").strip()
 
 
+def judge_model() -> str:
+    """Drafts eval questions and grades answers: a stronger model than the one being evaluated."""
+    return os.getenv("JUDGE_MODEL", "deepseek-v4-pro").strip()
+
+
 def llm_base_url() -> str:
     return os.getenv("LLM_BASE_URL", "https://api.deepseek.com").strip()

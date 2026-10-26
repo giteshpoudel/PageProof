@@ -1,0 +1,28 @@
+{
+  "pages": 390,
+  "drafted": 388,
+  "passed_checks": 376,
+  "page_refs_stripped": 40,
+  "gold_multi_page_candidates": 20,
+  "closed_book_correct_candidates": 206,
+  "questions": 200,
+  "dev": 50,
+  "test": 150,
+  "questions_closed_book_correct": 41,
+  "questions_multi_page_gold": 8,
+  "dev_answers_judge_unvalidated": {
+    "clean L0": {
+      "correct": 45,
+      "incorrect": 5
+    },
+    "tesseract L3": {
+      "correct": 45,
+      "incorrect": 5
+    },
+    "tesseract L5": {
+      "correct": 24,
+      "incorrect": 24,
+      "partial": 2
+    }
+  }
+}

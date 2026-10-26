@@ -1,0 +1,329 @@
+<title>PageProof Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one item at a time, like a proofreader's galley: the passage on the left, the call on the right. */
+:root {
+  --paper: #f6f7f9; --sheet: #ffffff; --ink: #18202b; --muted: #5d6877; --rule: #dde2ea;
+  --pencil: #2a63c9; --pencil-soft: #e4ecfb; --mark: #fff1b8;
+  --ok: #1d7a4b; --ok-soft: #e1f3e9; --warn: #9a6400; --warn-soft: #fbf0d9; --bad: #b3322e; --bad-soft: #fbe5e3;
+  --f-book: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #11151b; --sheet: #181d25; --ink: #e6eaf0; --muted: #98a3b3; --rule: #2a313c;
+  --pencil: #7ea6f2; --pencil-soft: #1f2b41; --mark: #4a3f12;
+  --ok: #5cc48d; --ok-soft: #173326; --warn: #e0b04f; --warn-soft: #3a2e14; --bad: #f08a84; --bad-soft: #3d1d1c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #11151b; --sheet: #181d25; --ink: #e6eaf0; --muted: #98a3b3; --rule: #2a313c;
+  --pencil: #7ea6f2; --pencil-soft: #1f2b41; --mark: #4a3f12;
+  --ok: #5cc48d; --ok-soft: #173326; --warn: #e0b04f; --warn-soft: #3a2e14; --bad: #f08a84; --bad-soft: #3d1d1c; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--f-ui); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+h1 { font: 600 22px/1.2 var(--f-book); margin: 0; letter-spacing: -0.01em; }
+.sub { color: var(--muted); font-size: 13px; }
+nav { display: flex; gap: 4px; margin-left: auto; }
+nav button { font: 500 14px var(--f-ui); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 10px; cursor: pointer; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--pencil); }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--pencil); outline-offset: 2px; }
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 14px 0; }
+.progress { flex: 1 1 260px; min-width: 0; }
+.track { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--rule); }
+.track span { display: block; height: 100%; }
+.counts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.counts b { color: var(--ink); font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+select { font: 14px var(--f-ui); color: var(--ink); background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 5px 8px; }
+
+.item { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 820px) { .item { grid-template-columns: 1fr; } }
+.galley { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 20px 22px; min-width: 0; }
+.galley .where { font: 12px var(--f-mono); color: var(--muted); margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.pagetext { font: 16px/1.62 var(--f-book); max-height: 62vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pagetext mark { background: var(--mark); color: inherit; padding: 0 1px; }
+.call { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.label { font: 600 11px var(--f-ui); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
+.q { font: 600 19px/1.35 var(--f-book); text-wrap: balance; margin: 0; }
+.a { font: 17px/1.45 var(--f-book); }
+.quote { font: italic 15px/1.5 var(--f-book); color: var(--muted); border-left: 2px solid var(--rule); padding-left: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 12px var(--f-ui); padding: 2px 8px; border-radius: 999px; background: var(--pencil-soft); color: var(--pencil); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.mono { font-family: var(--f-mono); }
+textarea, input[type=text] { width: 100%; font: 15px/1.4 var(--f-ui); color: var(--ink); background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 7px 9px; resize: vertical; }
+details summary { cursor: pointer; color: var(--pencil); font-size: 14px; }
+details[open] summary { margin-bottom: 8px; }
+.edit { display: flex; flex-direction: column; gap: 8px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: 500 14px var(--f-ui); border-radius: 6px; padding: 8px 14px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
+.btn kbd { font: 11px var(--f-mono); color: var(--muted); margin-left: 6px; }
+.btn.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.btn.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.btn.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.btn[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 1px; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.nav2 { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status { font-size: 13px; color: var(--muted); min-height: 1.5em; }
+.empty { background: var(--sheet); border: 1px dashed var(--rule); border-radius: 6px; padding: 32px; color: var(--muted); max-width: 640px; }
+.empty h2 { font: 600 18px var(--f-book); color: var(--ink); margin: 0 0 6px; }
+.help { font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>PageProof Review</h1>
+      <div class="sub">Hand checks for the P4 eval set: approve questions, then label answers without seeing the judge.</div>
+    </div>
+    <nav role="tablist">
+      <button role="tab" id="tab-questions" aria-selected="true" data-view="questions">Questions</button>
+      <button role="tab" id="tab-labels" aria-selected="false" data-view="labels">Answer labels</button>
+    </nav>
+  </header>
+
+  <section id="view-questions">
+    <div class="bar">
+      <div class="progress"><div class="track" id="q-track"></div><div class="counts" id="q-counts"></div></div>
+      <div class="filters">
+        <select id="q-filter" aria-label="Show">
+          <option value="pending">Pending</option><option value="all">All</option>
+          <option value="approved">Approved</option><option value="edited">Edited</option><option value="rejected">Rejected</option>
+        </select>
+        <select id="q-split" aria-label="Split"><option value="all">Dev + test</option><option value="dev">Dev</option><option value="test">Test</option></select>
+        <select id="q-book" aria-label="Book"><option value="all">All books</option></select>
+      </div>
+    </div>
+    <div id="q-body"></div>
+  </section>
+
+  <section id="view-labels" hidden>
+    <div class="bar">
+      <div class="progress"><div class="track" id="l-track"></div><div class="counts" id="l-counts"></div></div>
+      <div class="filters">
+        <select id="l-filter" aria-label="Show"><option value="pending">Unlabelled</option><option value="all">All</option></select>
+      </div>
+    </div>
+    <div id="l-body"></div>
+  </section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const state = { view: "questions", questions: [], labels: [], qi: 0, li: 0, db: null, canWrite: false, loaded: { q: false, l: false } };
+
+// Highlight a quote inside page text, ignoring case and runs of whitespace.
+function highlight(text, quote) {
+  const t = esc(text);
+  if (!quote) return t;
+  const words = esc(quote).trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (!words.length) return t;
+  try { return t.replace(new RegExp(words.join("\\s+"), "i"), (m) => `<mark>${m}</mark>`); } catch { return t; }
+}
+
+function track(el, parts, total) {
+  el.innerHTML = parts.map(([n, color]) => `<span style="width:${total ? (100 * n) / total : 0}%;background:var(${color})"></span>`).join("");
+}
+
+// ---- Questions ------------------------------------------------------------------------
+function qStatus(q) { return q.review === "approved" && (q.edited_question || q.edited_answer) ? "edited" : q.review || "pending"; }
+function qList() {
+  const f = $("q-filter").value, s = $("q-split").value, b = $("q-book").value;
+  return state.questions.filter((q) => (f === "all" || qStatus(q) === f) && (s === "all" || q.split === s) && (b === "all" || String(q.book_id) === b));
+}
+
+function renderQuestions() {
+  const all = state.questions, n = all.length;
+  const c = { approved: 0, edited: 0, rejected: 0, pending: 0 };
+  all.forEach((q) => c[qStatus(q)]++);
+  track($("q-track"), [[c.approved, "--ok"], [c.edited, "--pencil"], [c.rejected, "--bad"]], n);
+  $("q-counts").innerHTML = `<span><b>${n - c.pending}</b> of ${n} reviewed</span><span>${c.approved} approved</span><span>${c.edited} edited</span><span>${c.rejected} rejected</span>`;
+
+  const body = $("q-body");
+  if (!state.loaded.q) { body.innerHTML = `<div class="empty">Loading questions…</div>`; return; }
+  if (!n) {
+    body.innerHTML = `<div class="empty"><h2>No questions yet</h2>Claude loads the 200 drafted questions here once generation and the automatic checks finish. Each one shows its source page with the evidence highlighted.</div>`;
+    return;
+  }
+  const list = qList();
+  if (!list.length) { body.innerHTML = `<div class="empty"><h2>Nothing left in this filter</h2>Switch the filter to All to look back over your calls.</div>`; return; }
+  state.qi = Math.min(state.qi, list.length - 1);
+  const q = list[state.qi], st = qStatus(q);
+  const cb = q.closed_book_verdict;
+  const ro = state.canWrite ? "" : "disabled";
+  body.innerHTML = `
+  <div class="item">
+    <div class="galley">
+      <div class="where"><span>${esc(q.title)}</span><span>page ${esc(q.page_no)}</span><span>${esc(q.source_page)}</span></div>
+      <div class="pagetext">${highlight(q.page_text, q.evidence)}</div>
+    </div>
+    <div class="call">
+      <div class="nav2"><button class="btn" id="q-prev" aria-label="Previous">←</button><span>${state.qi + 1} / ${list.length}</span><button class="btn" id="q-next" aria-label="Next">→</button><span style="margin-left:auto" class="chip mono">${esc(q.qid)}</span></div>
+      <div class="chips">
+        <span class="chip">${esc(q.split)}</span>
+        ${q.kind ? `<span class="chip">${esc(q.kind)}</span>` : ""}
+        <span class="chip ${(q.gold_pages || []).length > 1 ? "warn" : ""}">gold: ${(q.gold_pages || []).map(esc).join(", ")}</span>
+        ${cb ? `<span class="chip ${cb === "correct" ? "bad" : "ok"}">closed-book ${esc(cb)}</span>` : ""}
+        <span class="chip ${st === "rejected" ? "bad" : st === "pending" ? "" : "ok"}">${esc(st)}</span>
+      </div>
+      <div><div class="label">Question</div><p class="q">${esc(q.edited_question || q.question)}</p></div>
+      <div><div class="label">Reference answer</div><div class="a">${esc(q.edited_answer || q.answer)}</div></div>
+      <div><div class="label">Evidence quote</div><div class="quote">${esc(q.evidence)}</div></div>
+      ${cb === "correct" ? `<div class="help">The model answered this from memory, without any pages. Fine to keep, but it says little about OCR.</div>` : ""}
+      <details ${q.edited_question || q.edited_answer ? "open" : ""}>
+        <summary>Edit question or answer</summary>
+        <div class="edit">
+          <label class="label" for="q-edit-q">Question</label><textarea id="q-edit-q" rows="3" ${ro}>${esc(q.edited_question || q.question)}</textarea>
+          <label class="label" for="q-edit-a">Answer</label><input type="text" id="q-edit-a" value="${esc(q.edited_answer || q.answer)}" ${ro}>
+        </div>
+      </details>
+      <div><label class="label" for="q-note">Note (optional)</label><input type="text" id="q-note" value="${esc(q.note || "")}" placeholder="Why rejected, or what changed" ${ro}></div>
+      <div class="actions">
+        <button class="btn ok" id="q-approve" aria-pressed="${st === "approved" || st === "edited"}" ${ro}>Approve<kbd>A</kbd></button>
+        <button class="btn bad" id="q-reject" aria-pressed="${st === "rejected"}" ${ro}>Reject<kbd>R</kbd></button>
+      </div>
+      <div class="status" id="q-status">${state.canWrite ? "Keys: A approve, R reject, ← → move. Your call saves straight away." : "Read only: only the owner of this page can record reviews."}</div>
+    </div>
+  </div>`;
+  $("q-prev").onclick = () => { state.qi = Math.max(0, state.qi - 1); renderQuestions(); };
+  $("q-next").onclick = () => { state.qi = Math.min(list.length - 1, state.qi + 1); renderQuestions(); };
+  $("q-approve").onclick = () => decideQuestion(q, "approved");
+  $("q-reject").onclick = () => decideQuestion(q, "rejected");
+}
+
+async function decideQuestion(q, review) {
+  if (!state.db || !state.canWrite) return;
+  const eq = $("q-edit-q").value.trim(), ea = $("q-edit-a").value.trim();
+  const patch = { review, note: $("q-note").value.trim(), reviewed_at: new Date().toISOString(),
+    edited_question: eq && eq !== q.question ? eq : "", edited_answer: ea && ea !== q.answer ? ea : "" };
+  $("q-status").textContent = "Saving…";
+  try {
+    await state.db.doc("questions/" + q.qid).update(patch);
+    const filtered = $("q-filter").value !== "all";
+    if (!filtered) state.qi++; // in a "pending" view the item drops out, so the index already points at the next one
+  } catch (e) {
+    $("q-status").textContent = e && e.code === "invalid_argument" ? "Couldn't save: this page is read only for you." : "Couldn't save. Check your connection and try again.";
+    if (e && e.code === "invalid_argument") state.canWrite = false;
+  }
+}
+
+// ---- Answer labels --------------------------------------------------------------------
+const LABELS = [["correct", "ok", "1"], ["partial", "warn", "2"], ["incorrect", "bad", "3"]];
+function lList() { return $("l-filter").value === "all" ? state.labels : state.labels.filter((l) => !l.label); }
+
+function renderLabels() {
+  const all = state.labels, n = all.length;
+  const c = { correct: 0, partial: 0, incorrect: 0 };
+  all.forEach((l) => l.label && c[l.label]++);
+  const done = c.correct + c.partial + c.incorrect;
+  track($("l-track"), [[c.correct, "--ok"], [c.partial, "--warn"], [c.incorrect, "--bad"]], n);
+  $("l-counts").innerHTML = `<span><b>${done}</b> of ${n} labelled</span><span>${c.correct} correct</span><span>${c.partial} partial</span><span>${c.incorrect} incorrect</span>`;
+
+  const body = $("l-body");
+  if (!state.loaded.l) { body.innerHTML = `<div class="empty">Loading answers…</div>`; return; }
+  if (!n) {
+    body.innerHTML = `<div class="empty"><h2>No answers to label yet</h2>After the questions are approved, Claude runs the dev set through the system (clean text, Tesseract level 3 and level 5) and loads 60 answers here. The judge's verdicts stay hidden until you finish.</div>`;
+    return;
+  }
+  const list = lList();
+  if (!list.length) { body.innerHTML = `<div class="empty"><h2>All ${n} answers labelled</h2>Tell Claude to read the labels back and compute the agreement with the judge.</div>`; return; }
+  state.li = Math.min(state.li, list.length - 1);
+  const l = list[state.li], ro = state.canWrite ? "" : "disabled";
+  body.innerHTML = `
+  <div class="item">
+    <div class="galley">
+      <div class="where"><span>${esc(l.title || "")}</span><span>gold ${(l.gold_pages || []).map(esc).join(", ")}</span></div>
+      <div class="label">Question</div><p class="q">${esc(l.question)}</p>
+      <div class="label" style="margin-top:14px">Reference answer</div><div class="a">${esc(l.reference)}</div>
+      <div class="label" style="margin-top:14px">Evidence from the book</div><div class="quote">${esc(l.evidence)}</div>
+    </div>
+    <div class="call">
+      <div class="nav2"><button class="btn" id="l-prev" aria-label="Previous">←</button><span>${state.li + 1} / ${list.length}</span><button class="btn" id="l-next" aria-label="Next">→</button><span style="margin-left:auto" class="chip mono">${esc(l.short_id)}</span></div>
+      <div><div class="label">Answer to grade</div><div class="a">${esc(l.answer)}</div></div>
+      ${l.citations && l.citations.length ? `<div class="chips">${l.citations.map((p) => `<span class="chip mono ${(l.gold_pages || []).includes(p) ? "ok" : ""}">${esc(p)}</span>`).join("")}</div>` : ""}
+      <div class="help">Correct: states the reference fact (names and numbers must match). Partial: part of it, or right but vague. Incorrect: wrong, a different fact, or no answer.</div>
+      <div class="actions">${LABELS.map(([v, cls, key]) => `<button class="btn ${cls}" data-label="${v}" aria-pressed="${l.label === v}" ${ro}>${v[0].toUpperCase() + v.slice(1)}<kbd>${key}</kbd></button>`).join("")}</div>
+      <div class="status" id="l-status">${state.canWrite ? "Keys: 1 correct, 2 partial, 3 incorrect, ← → move." : "Read only: only the owner of this page can record labels."}</div>
+    </div>
+  </div>`;
+  $("l-prev").onclick = () => { state.li = Math.max(0, state.li - 1); renderLabels(); };
+  $("l-next").onclick = () => { state.li = Math.min(list.length - 1, state.li + 1); renderLabels(); };
+  body.querySelectorAll("[data-label]").forEach((b) => (b.onclick = () => labelAnswer(l, b.dataset.label)));
+}
+
+async function labelAnswer(l, label) {
+  if (!state.db || !state.canWrite) return;
+  $("l-status").textContent = "Saving…";
+  try {
+    await state.db.doc("labels/" + l.id).update({ label, labelled_at: new Date().toISOString() });
+    if ($("l-filter").value === "all") state.li++;
+  } catch (e) {
+    $("l-status").textContent = e && e.code === "invalid_argument" ? "Couldn't save: this page is read only for you." : "Couldn't save. Check your connection and try again.";
+  }
+}
+
+// ---- Shell ----------------------------------------------------------------------------
+function render() { state.view === "questions" ? renderQuestions() : renderLabels(); }
+function show(view) {
+  state.view = view;
+  document.querySelectorAll("nav button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === view)));
+  $("view-questions").hidden = view !== "questions";
+  $("view-labels").hidden = view !== "labels";
+  render();
+}
+document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => show(b.dataset.view)));
+["q-filter", "q-split", "q-book"].forEach((id) => $(id).addEventListener("change", () => { state.qi = 0; renderQuestions(); }));
+$("l-filter").addEventListener("change", () => { state.li = 0; renderLabels(); });
+
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (state.view === "questions") {
+    if (k === "a") $("q-approve")?.click();
+    else if (k === "r") $("q-reject")?.click();
+    else if (k === "arrowleft") $("q-prev")?.click();
+    else if (k === "arrowright") $("q-next")?.click();
+  } else {
+    const hit = LABELS.find(([, , key]) => key === k);
+    if (hit) document.querySelector(`[data-label="${hit[0]}"]`)?.click();
+    else if (k === "arrowleft") $("l-prev")?.click();
+    else if (k === "arrowright") $("l-next")?.click();
+  }
+});
+
+if (location.hash === "#labels") show("labels"); else render();
+
+(async () => {
+  const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+  if (!db) {
+    state.loaded = { q: true, l: true };
+    $("q-body").innerHTML = $("l-body").innerHTML = `<div class="empty"><h2>Sign in to see the review data</h2>The questions and labels are stored with this page and load for signed-in viewers.</div>`;
+    return;
+  }
+  state.db = db;
+  state.canWrite = user ? user.isOwner() : false;
+  db.collection("questions").onSnapshot((snap) => {
+    state.questions = snap.docs.map((d) => d.data());
+    const books = [...new Map(state.questions.map((q) => [String(q.book_id), q.title])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    const sel = $("q-book"), cur = sel.value;
+    sel.innerHTML = `<option value="all">All books</option>` + books.map(([id, t]) => `<option value="${esc(id)}">${esc(t)}</option>`).join("");
+    sel.value = books.some(([id]) => id === cur) ? cur : "all";
+    state.loaded.q = true;
+    if (state.view === "questions") renderQuestions();
+  }, () => { state.loaded.q = true; $("q-body").innerHTML = `<div class="empty">Couldn't load the questions. Reload the page to try again.</div>`; });
+  db.collection("labels").onSnapshot((snap) => {
+    state.labels = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    state.loaded.l = true;
+    if (state.view === "labels") renderLabels();
+  }, () => { state.loaded.l = true; $("l-body").innerHTML = `<div class="empty">Couldn't load the answers. Reload the page to try again.</div>`; });
+})();
+</script>
