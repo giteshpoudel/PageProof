@@ -173,11 +173,19 @@ async function write(coll, id, patch) {
   const key = coll === "questions" ? "q" : "l";
   state.pending[key].add(id);
   try {
-    await state.db.doc(coll + "/" + id).update(patch);
+    const ref = state.db.doc(coll + "/" + id);
+    await ref.update(patch);
+    // Read it back: only a server copy that matches counts as saved.
+    const snap = await ref.get();
+    const body = snap.exists ? snap.data() : {};
+    const field = coll === "labels" ? "label" : "review";
+    if (snap.metadata.fromCache || body[field] !== patch[field]) throw { code: "not_confirmed" };
     showBanner("");
   } catch (e) {
     const code = (e && e.code) || "unknown";
-    showBanner(code === "invalid_argument"
+    showBanner(code === "not_confirmed"
+      ? "The server hasn't confirmed this save. Your calls are kept in this browser: use Resend unsaved, or Copy my calls and paste them to Claude."
+      : code === "invalid_argument"
       ? "The server refused this save (it treats this page as read only for you). Your calls are kept in this browser; use Copy my calls and paste them to Claude."
       : `Couldn't save (${code}). Your calls are kept in this browser. Use Resend unsaved when you're back online, or Copy my calls.`);
     throw e;

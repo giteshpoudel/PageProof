@@ -198,3 +198,5 @@
 {"qid": "q-pg3300-p1107", "flagged": false, "checks": [{"model": "deepseek-v4-pro", "failed": [], "problem": ""}, {"model": "deepseek-flash", "failed": [], "problem": ""}]}
 {"qid": "q-pg3300-p1110", "flagged": false, "checks": [{"model": "deepseek-v4-pro", "failed": [], "problem": ""}, {"model": "deepseek-flash", "failed": [], "problem": ""}]}
 {"qid": "q-pg3300-p1112", "flagged": false, "checks": [{"model": "deepseek-v4-pro", "failed": [], "problem": ""}, {"model": "deepseek-flash", "failed": [], "problem": ""}]}
+{"qid": "q-pg26-p0196", "flagged": false, "checks": [{"model": "deepseek-v4-pro", "failed": [], "problem": ""}, {"model": "deepseek-flash", "failed": [], "problem": ""}]}
+{"qid": "q-pg3300-p1090", "flagged": false, "checks": [{"model": "deepseek-v4-pro", "failed": [], "problem": ""}, {"model": "deepseek-flash", "failed": [], "problem": ""}]}

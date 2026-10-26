@@ -137,5 +137,50 @@ def estimate() -> None:
         "flagged_reviewed": len(flg), "flagged_rejected": sum(reviews[q]["review"] == "rejected" for q in flg)}, indent=2) + "\n")
 
 
+@app.command()
+def replace() -> None:
+    """Swap each hand-rejected question for an unused candidate from the same book and split that passes the audit.
+    Hand edits to approved questions are applied too."""
+    reviews = {r["qid"]: r for r in read_jsonl(REVIEWS)}
+    qs = read_jsonl(QUESTIONS)
+    used = {q["qid"] for q in qs}
+    cands = [c for c in read_jsonl(EVALS / "candidates.jsonl")
+             if not c.get("problems") and c.get("gold_source_confirmed") and "closed_book" in c and c["qid"] not in used]
+    rng = random.Random(SEED)
+    rng.shuffle(cands)
+    cands.sort(key=lambda c: c["closed_book"]["verdict"] == "correct")  # not memorized first, as in assembly
+    pages = page_texts()
+    audit = read_jsonl(AUDIT)
+    out = []
+    for q in qs:
+        r = reviews.get(q["qid"], {})
+        if r.get("review") != "rejected":
+            if r.get("edited_question"):
+                q["question"] = r["edited_question"]
+            if r.get("edited_answer"):
+                q["answer"] = r["edited_answer"]
+            q["review"] = r.get("review") or "audit-passed"
+            out.append(q)
+            continue
+        for c in [c for c in cands if c["book_id"] == q["book_id"]]:
+            cands.remove(c)
+            a = _audit_one((c, pages[c["source_page"]]))
+            audit.append(a)
+            if a["flagged"]:
+                continue
+            new = {k: c[k] for k in ("qid", "book_id", "title", "source_page", "gold_pages", "question", "answer",
+                                     "evidence", "kind", "closed_book")}
+            out.append(new | {"split": q["split"], "review": "audit-passed", "replaces": q["qid"]})
+            print(f"{q['qid']} -> {c['qid']}: {c['question']}")
+            break
+        else:
+            print(f"no replacement found for {q['qid']}")
+    write_jsonl(AUDIT, audit)
+    keep = ("qid", "split", "book_id", "title", "source_page", "gold_pages", "question", "answer",
+            "evidence", "kind", "closed_book", "review", "replaces")
+    write_jsonl(QUESTIONS, [{k: q[k] for k in keep if k in q} for q in sorted(out, key=lambda q: q["qid"])])
+    print(f"{len(out)} questions; reviews: {dict(Counter(q['review'] for q in out))}")
+
+
 if __name__ == "__main__":
     app()
