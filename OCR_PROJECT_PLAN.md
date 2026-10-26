@@ -53,7 +53,7 @@ So:
 
 Public domain (US) only.
 
-- **Synthetic, with exact ground truth:** 5–8 Project Gutenberg books with varied layouts (prose, verse, tables, footnotes). Render from Gutenberg's **HTML** editions (not plain text) so layout survives: HTML → PDF → page images. Every page keeps its source text and region boxes, so CER and answer correctness are exact.
+- **Synthetic, with exact ground truth:** 5–8 Project Gutenberg books with varied layouts (prose, verse, tables, footnotes). Render from Gutenberg's **HTML** editions (not plain text) so layout survives: HTML → PDF → page images. Strip illustration captions and drop-cap images in P1 (P0 found both leaking into pages). Every page keeps its source text and region boxes, so CER and answer correctness are exact.
 - **Real scans, for realism:** the same editions' scans from the Internet Archive, where available. No exact ground truth: use them for qualitative examples, the demo, and the PDF text-layer source.
 
 ## OCR sources
@@ -81,7 +81,7 @@ Public domain (US) only.
 
 ## Stack
 
-Python 3.12 with uv, Unlimited-OCR (Transformers on Mac; vLLM on CUDA), Tesseract, PyMuPDF, WeasyPrint (HTML → PDF), Pillow + Augraphy (degradation), DuckDB + Parquet, LanceDB, BM25, sentence-transformers, an OpenAI-compatible LLM (DeepSeek), Pydantic, Typer (CLI), pytest, GitHub Actions.
+Python 3.12 with uv, Unlimited-OCR (Transformers on Mac; vLLM on CUDA), Tesseract, PyMuPDF (also HTML → PDF via its Story engine), Pillow + Augraphy (degradation), DuckDB + Parquet, LanceDB, BM25, sentence-transformers, an OpenAI-compatible LLM (DeepSeek), Pydantic, Typer (CLI), pytest, GitHub Actions.
 
 ## Repo layout
 

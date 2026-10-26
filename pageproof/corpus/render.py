@@ -94,7 +94,8 @@ def render_book(book_id: int, out_dir: Path, first_page: int, n_pages: int,
     for i in range(first_page - 1, min(first_page - 1 + n_pages, doc.page_count)):
         page = doc[i]
         image = book_dir / f"page_{i + 1:04d}.png"
-        page.get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY).save(image)
+        if not image.exists():  # keep existing images so every machine OCRs the same bytes
+            page.get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY).save(image)
         pages.append(Page(book_id, i + 1, str(image), page.get_text("text")))
     doc.close()
 

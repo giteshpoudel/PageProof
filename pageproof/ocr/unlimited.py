@@ -133,9 +133,20 @@ _TAG = re.compile(r"<\|[^|]*\|>")
 _MD = re.compile(r"^\s{0,3}(#{1,6}\s+|[-*+]\s+|>\s+)", re.M)
 
 
+_LATEX_INLINE = re.compile(r"\\\((.*?)\\\)", re.S)
+_LATEX_SCRIPT = re.compile(r"[\^_]\{([^{}]*)\}")
+
+
+def _flatten_latex(math: str) -> str:
+    # The model writes superscripts such as "Mr." as \( M^{r} \); keep the letters.
+    return _LATEX_SCRIPT.sub(r"\1", math).replace(" ", "")
+
+
 def to_plain_text(raw: str) -> str:
-    """Strip layout tags and Markdown markup so output compares with plain ground truth."""
+    """Strip layout tags, inline LaTeX and Markdown markup so output compares with plain ground truth."""
     text = _TAG.sub("", _DET.sub("", raw))
+    text = _LATEX_INLINE.sub(lambda m: _flatten_latex(m.group(1)), text)
+    text = re.sub(r"(\w) \.", r"\1.", text)  # "M^{rs} ." -> "Mrs."
     text = _MD.sub("", text)
     text = re.sub(r"(\*\*|__|\*|_)(\S.*?\S|\S)\1", r"\2", text)  # bold / italic
     return text
