@@ -11,6 +11,10 @@ dependencies = [
     "rapidfuzz>=3.10",
     "typer>=0.15",
     "requests>=2.32",
+    "beautifulsoup4>=4.15.0",
+    "pyarrow>=26.0.0",
+    "duckdb>=2.0.0",
+    "numpy>=2.5.4",
 ]
 
 [project.optional-dependencies]

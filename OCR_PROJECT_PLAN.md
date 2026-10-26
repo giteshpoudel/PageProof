@@ -22,7 +22,7 @@ The headline result is a curve, not one number: answer accuracy against measured
 
 These choices make the curve trustworthy. Each one closes a hole a reviewer would find.
 
-1. **Severity, not a mix of types.** Degradation levels 0–5 turn one severity knob that scales every effect together (noise, blur, skew, JPEG quality, DPI). A separate small grid varies one effect at a time, to show which effect hurts most. The x-axis is each page's *measured* CER, binned, not the level number.
+1. **Severity, not a mix of types.** Degradation levels 0–5 turn one severity knob that scales every effect together (skew, blur, low DPI, noise, JPEG quality). Calibrated so median Tesseract CER roughly doubles per level: 0%, 0.9%, 1.7%, 3.4%, 7.1%, 33% ([results/p1_calibration.csv](results/p1_calibration.csv)). No effect does much alone (≤2% CER), so instead of a one-effect grid a **leave-one-out** set (all effects but one, at level 5) measures what each effect adds. The x-axis is each page's *measured* CER, binned, not the level number.
 2. **Memorization control.** Gutenberg books are in most LLMs' training data, so a model can answer from memory and hide OCR damage. Two guards:
    - a **closed-book baseline**: the same questions with no retrieved context; report it as a floor line on the chart;
    - questions favour details a model is unlikely to recall (numbers, minor names, footnotes, table cells), and closed-book-answerable questions are flagged and reported separately.
@@ -53,7 +53,7 @@ So:
 
 Public domain (US) only.
 
-- **Synthetic, with exact ground truth:** 5–8 Project Gutenberg books with varied layouts (prose, verse, tables, footnotes). Render from Gutenberg's **HTML** editions (not plain text) so layout survives: HTML → PDF → page images. Strip illustration captions and drop-cap images in P1 (P0 found both leaking into pages). Every page keeps its source text and region boxes, so CER and answer correctness are exact.
+- **Synthetic, with exact ground truth:** 6 Project Gutenberg books with varied layouts: Pride and Prejudice (prose, dialogue), The Adventures of Sherlock Holmes (prose), Paradise Lost (verse), War and Peace (footnotes, French passages), The Wealth of Nations (numbers, prices), On the Origin of Species (scientific prose). Render from Gutenberg's **HTML** editions (not plain text) so layout survives: HTML → PDF → page images. Illustration captions are stripped and drop-cap images replaced by their letter. Every page keeps its source text and region boxes, so CER and answer correctness are exact.
 - **Real scans, for realism:** the same editions' scans from the Internet Archive, where available. No exact ground truth: use them for qualitative examples, the demo, and the PDF text-layer source.
 
 ## OCR sources
@@ -70,7 +70,7 @@ Public domain (US) only.
 | Phase | Work | Done when |
 | --- | --- | --- |
 | P0 Feasibility | Run Unlimited-OCR on 10 pages: Mac mini (patched, single page) and CUDA (rented GPU or the HF Space). Time a short GPU batch. | Both produce sane Markdown; Mac-vs-CUDA CER measured; rough pages/sec; go / no-go on the Mac path. |
-| P1 Corpus | HTML → page renderer, degradation pipeline (severity levels + one-effect grid), page ↔ source-text alignment stored as Parquet. | ~1,500–3,000 synthetic pages in total, each with ground truth; CER of clean text = 0 as a sanity test. |
+| P1 Corpus | HTML → page renderer, degradation pipeline (severity levels + leave-one-out set), page ↔ source-text alignment stored as Parquet. 6 books × 65 contiguous pages. | ~2,600 page images in total, each with ground truth; Tesseract CER on level 0 ≈ 0 as a sanity test. |
 | P2 OCR runs | Tesseract and Unlimited-OCR on every synthetic page; all sources on real scans. | CER/WER per page × source × level; pages/sec and $ per 1,000 pages on the GPU. |
 | P3 Index + QA | Layout-aware chunks keeping page ids; hybrid search (BM25 + vector); answers cite pages and show a page crop. | `pageproof ask` answers with page citations from any OCR source. |
 | P4 Evals | ~200 questions from the clean text (LLM-drafted, hand-verified), each with a gold page; judge validated on ~60 hand labels. Run full pipeline, oracle page and closed-book per source × level, 3 runs. | Curves of answer accuracy vs CER per source, with CIs and the closed-book floor; retrieval vs reading split; test split untouched until final runs. |
