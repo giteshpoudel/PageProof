@@ -76,19 +76,32 @@ details[open] summary { margin-bottom: 8px; }
 .empty { background: var(--sheet); border: 1px dashed var(--rule); border-radius: 6px; padding: 32px; color: var(--muted); max-width: 640px; }
 .empty h2 { font: 600 18px var(--f-book); color: var(--ink); margin: 0 0 6px; }
 .help { font-size: 13px; color: var(--muted); }
+.savebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 0 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.savebar b { color: var(--ink); }
+.savebar .btn { padding: 5px 10px; font-size: 13px; }
+.banner { background: var(--bad-soft); color: var(--bad); border-radius: 6px; padding: 10px 14px; margin-top: 12px; font-size: 14px; }
+.banner[hidden] { display: none; }
+.copybox { width: 100%; font: 12px/1.4 var(--f-mono); margin-top: 8px; }
 </style>
 
 <div class="wrap">
   <header>
     <div>
       <h1>PageProof Review</h1>
-      <div class="sub">Hand checks for the P4 eval set: approve questions, then label answers without seeing the judge.</div>
+      <div class="sub">Hand checks for the P4 eval set: the questions the audit flagged plus a random sample, then 60 answers to label without seeing the judge.</div>
     </div>
     <nav role="tablist">
       <button role="tab" id="tab-questions" aria-selected="true" data-view="questions">Questions</button>
       <button role="tab" id="tab-labels" aria-selected="false" data-view="labels">Answer labels</button>
     </nav>
   </header>
+  <div class="savebar">
+    <span id="save-summary">Connecting…</span>
+    <button class="btn" id="resend" hidden>Resend unsaved</button>
+    <button class="btn" id="copy-calls">Copy my calls</button>
+  </div>
+  <div class="banner" id="banner" role="alert" hidden></div>
+  <textarea class="copybox" id="copybox" rows="6" readonly hidden aria-label="Your calls as JSON"></textarea>
 
   <section id="view-questions">
     <div class="bar">
@@ -119,7 +132,60 @@ details[open] summary { margin-bottom: 8px; }
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const state = { view: "questions", questions: [], labels: [], qi: 0, li: 0, db: null, canWrite: false, loaded: { q: false, l: false } };
+const state = { view: "questions", questions: [], labels: [], qi: 0, li: 0, db: null, canWrite: false, loaded: { q: false, l: false },
+  pending: { q: new Set(), l: new Set() } };
+
+// Every call is also kept in this browser, so nothing is lost if the server refuses or drops a write.
+const BACKUP_KEY = "pageproof-review-calls";
+function loadBackup() { try { return JSON.parse(localStorage.getItem(BACKUP_KEY)) || { questions: {}, labels: {} }; } catch { return { questions: {}, labels: {} }; } }
+function saveBackup(b) { try { localStorage.setItem(BACKUP_KEY, JSON.stringify(b)); } catch {} }
+const backup = loadBackup();
+
+function showBanner(text) { const b = $("banner"); b.textContent = text; b.hidden = !text; }
+
+// Calls in the backup that the server copy doesn't match yet.
+function unsaved() {
+  const out = [];
+  const qs = new Map(state.questions.map((q) => [q.qid, q]));
+  for (const [qid, p] of Object.entries(backup.questions)) {
+    const q = qs.get(qid);
+    if (q && (q.review !== p.review || (q.edited_question || "") !== p.edited_question || (q.edited_answer || "") !== p.edited_answer || (q.note || "") !== p.note)) out.push(["questions", qid, p]);
+  }
+  const ls = new Map(state.labels.map((l) => [l.id, l]));
+  for (const [id, label] of Object.entries(backup.labels)) {
+    const l = ls.get(id);
+    if (l && l.label !== label) out.push(["labels", id, { label }]);
+  }
+  return out;
+}
+
+function renderSaveBar() {
+  if (!state.db) return;
+  const qDone = reviewSet().filter((q) => q.review && q.review !== "pending" && !state.pending.q.has(q.qid)).length;
+  const lDone = state.labels.filter((l) => l.label && !state.pending.l.has(l.id)).length;
+  const u = unsaved();
+  $("save-summary").innerHTML = `Saved on the server: <b>${qDone}</b> of ${reviewSet().length} questions, <b>${lDone}</b> of ${state.labels.length} labels` +
+    (u.length ? ` · <b style="color:var(--bad)">${u.length} not saved yet</b>` : "");
+  $("resend").hidden = !u.length || !state.canWrite;
+}
+
+async function write(coll, id, patch) {
+  const key = coll === "questions" ? "q" : "l";
+  state.pending[key].add(id);
+  try {
+    await state.db.doc(coll + "/" + id).update(patch);
+    showBanner("");
+  } catch (e) {
+    const code = (e && e.code) || "unknown";
+    showBanner(code === "invalid_argument"
+      ? "The server refused this save (it treats this page as read only for you). Your calls are kept in this browser; use Copy my calls and paste them to Claude."
+      : `Couldn't save (${code}). Your calls are kept in this browser. Use Resend unsaved when you're back online, or Copy my calls.`);
+    throw e;
+  } finally {
+    state.pending[key].delete(id);
+    renderSaveBar();
+  }
+}
 
 // Highlight a quote inside page text, ignoring case and runs of whitespace.
 function highlight(text, quote) {
@@ -136,13 +202,15 @@ function track(el, parts, total) {
 
 // ---- Questions ------------------------------------------------------------------------
 function qStatus(q) { return q.review === "approved" && (q.edited_question || q.edited_answer) ? "edited" : q.review || "pending"; }
+// Only the audit's review set (flagged + a random sample) needs a person; the rest are in the store but hidden.
+function reviewSet() { return state.questions.some((q) => q.in_review) ? state.questions.filter((q) => q.in_review) : state.questions; }
 function qList() {
   const f = $("q-filter").value, s = $("q-split").value, b = $("q-book").value;
-  return state.questions.filter((q) => (f === "all" || qStatus(q) === f) && (s === "all" || q.split === s) && (b === "all" || String(q.book_id) === b));
+  return reviewSet().filter((q) => (f === "all" || qStatus(q) === f) && (s === "all" || q.split === s) && (b === "all" || String(q.book_id) === b));
 }
 
 function renderQuestions() {
-  const all = state.questions, n = all.length;
+  const all = reviewSet(), n = all.length;
   const c = { approved: 0, edited: 0, rejected: 0, pending: 0 };
   all.forEach((q) => c[qStatus(q)]++);
   track($("q-track"), [[c.approved, "--ok"], [c.edited, "--pencil"], [c.rejected, "--bad"]], n);
@@ -178,6 +246,7 @@ function renderQuestions() {
       <div><div class="label">Question</div><p class="q">${esc(q.edited_question || q.question)}</p></div>
       <div><div class="label">Reference answer</div><div class="a">${esc(q.edited_answer || q.answer)}</div></div>
       <div><div class="label">Evidence quote</div><div class="quote">${esc(q.evidence)}</div></div>
+      ${q.audit_note ? `<div class="banner" style="margin:0">Checker objection: ${esc(q.audit_note)}</div>` : ""}
       ${cb === "correct" ? `<div class="help">The model answered this from memory, without any pages. Fine to keep, but it says little about OCR.</div>` : ""}
       <details ${q.edited_question || q.edited_answer ? "open" : ""}>
         <summary>Edit question or answer</summary>
@@ -205,14 +274,15 @@ async function decideQuestion(q, review) {
   const eq = $("q-edit-q").value.trim(), ea = $("q-edit-a").value.trim();
   const patch = { review, note: $("q-note").value.trim(), reviewed_at: new Date().toISOString(),
     edited_question: eq && eq !== q.question ? eq : "", edited_answer: ea && ea !== q.answer ? ea : "" };
+  backup.questions[q.qid] = { review: patch.review, note: patch.note, edited_question: patch.edited_question, edited_answer: patch.edited_answer };
+  saveBackup(backup);
   $("q-status").textContent = "Saving…";
   try {
-    await state.db.doc("questions/" + q.qid).update(patch);
-    const filtered = $("q-filter").value !== "all";
-    if (!filtered) state.qi++; // in a "pending" view the item drops out, so the index already points at the next one
-  } catch (e) {
-    $("q-status").textContent = e && e.code === "invalid_argument" ? "Couldn't save: this page is read only for you." : "Couldn't save. Check your connection and try again.";
-    if (e && e.code === "invalid_argument") state.canWrite = false;
+    await write("questions", q.qid, patch);
+    if ($("q-filter").value === "all") state.qi++; // in a filtered view the item drops out, so the index already points at the next one
+    renderQuestions();
+  } catch {
+    const s = $("q-status"); if (s) s.textContent = "Not saved: see the message at the top.";
   }
 }
 
@@ -262,14 +332,35 @@ function renderLabels() {
 
 async function labelAnswer(l, label) {
   if (!state.db || !state.canWrite) return;
+  backup.labels[l.id] = label;
+  saveBackup(backup);
   $("l-status").textContent = "Saving…";
   try {
-    await state.db.doc("labels/" + l.id).update({ label, labelled_at: new Date().toISOString() });
+    await write("labels", l.id, { label, labelled_at: new Date().toISOString() });
     if ($("l-filter").value === "all") state.li++;
-  } catch (e) {
-    $("l-status").textContent = e && e.code === "invalid_argument" ? "Couldn't save: this page is read only for you." : "Couldn't save. Check your connection and try again.";
+    renderLabels();
+  } catch {
+    const s = $("l-status"); if (s) s.textContent = "Not saved: see the message at the top.";
   }
 }
+
+$("resend").onclick = async () => {
+  const items = unsaved();
+  for (const [coll, id, patch] of items) {
+    try { await write(coll, id, patch); } catch { break; }
+  }
+};
+
+$("copy-calls").onclick = async () => {
+  const calls = { questions: {}, labels: {} };
+  state.questions.forEach((q) => { if (q.review && q.review !== "pending") calls.questions[q.qid] = { review: q.review, note: q.note || "", edited_question: q.edited_question || "", edited_answer: q.edited_answer || "" }; });
+  state.labels.forEach((l) => { if (l.label) calls.labels[l.id] = l.label; });
+  Object.assign(calls.questions, backup.questions); Object.assign(calls.labels, backup.labels); // this browser's calls win
+  const text = JSON.stringify(calls);
+  const box = $("copybox");
+  try { await navigator.clipboard.writeText(text); box.hidden = true; $("save-summary").textContent = `Copied ${Object.keys(calls.questions).length} question calls and ${Object.keys(calls.labels).length} labels. Paste them to Claude.`; }
+  catch { box.value = text; box.hidden = false; box.focus(); box.select(); }
+};
 
 // ---- Shell ----------------------------------------------------------------------------
 function render() { state.view === "questions" ? renderQuestions() : renderLabels(); }
@@ -310,7 +401,8 @@ if (location.hash === "#labels") show("labels"); else render();
     return;
   }
   state.db = db;
-  state.canWrite = user ? user.isOwner() : false;
+  // isOwner() is async. Without a user namespace the platform hasn't said: keep the controls and let a refused write decide.
+  state.canWrite = user ? await user.isOwner() : true;
   db.collection("questions").onSnapshot((snap) => {
     state.questions = snap.docs.map((d) => d.data());
     const books = [...new Map(state.questions.map((q) => [String(q.book_id), q.title])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -318,11 +410,13 @@ if (location.hash === "#labels") show("labels"); else render();
     sel.innerHTML = `<option value="all">All books</option>` + books.map(([id, t]) => `<option value="${esc(id)}">${esc(t)}</option>`).join("");
     sel.value = books.some(([id]) => id === cur) ? cur : "all";
     state.loaded.q = true;
+    renderSaveBar();
     if (state.view === "questions") renderQuestions();
   }, () => { state.loaded.q = true; $("q-body").innerHTML = `<div class="empty">Couldn't load the questions. Reload the page to try again.</div>`; });
   db.collection("labels").onSnapshot((snap) => {
     state.labels = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     state.loaded.l = true;
+    renderSaveBar();
     if (state.view === "labels") renderLabels();
   }, () => { state.loaded.l = true; $("l-body").innerHTML = `<div class="empty">Couldn't load the answers. Reload the page to try again.</div>`; });
 })();
