@@ -137,8 +137,11 @@ def bootstrap(per_q: dict[str, float], n: int = 2000) -> tuple[float, float, flo
 
 
 @app.command()
-def summary() -> None:
+def summary(runs: str = "") -> None:
+    """runs: comma-separated run numbers to include (default all), e.g. --runs 1 while later runs are incomplete."""
     rows = read_jsonl(OUT)
+    if runs:
+        rows = [r for r in rows if str(r["run"]) in runs.split(",")]
     cells = defaultdict(list)
     for r in rows:
         cells[(r["mode"], r["source"], r["level"])].append(r)
