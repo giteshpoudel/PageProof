@@ -98,9 +98,10 @@ def cohen_kappa(a: list[str], b: list[str]) -> float:
 
 
 @app.command()
-def kappa() -> None:
-    """Hand labels come from judge_labels.jsonl: {"aid": ..., "label": "correct|partial|incorrect"}."""
-    labels = {r["aid"]: r["label"] for r in read_jsonl(LABELS) if r.get("label") in VERDICTS}
+def kappa(labels_file: Path = LABELS, out: Path = Path("results/p4_judge_kappa.json")) -> None:
+    """Labels come from a JSONL of {"aid": ..., "label": "correct|partial|incorrect"}: hand labels by default,
+    or a second judge's (judge_labels_claude.jsonl -> results/p4_judge_vs_claude.json)."""
+    labels = {r["aid"]: r["label"] for r in read_jsonl(labels_file) if r.get("label") in VERDICTS}
     rows = [r for r in read_jsonl(SAMPLE) if r["aid"] in labels]
     human = [labels[r["aid"]] for r in rows]
     judged = [r["judge"]["verdict"] for r in rows]
@@ -109,10 +110,9 @@ def kappa() -> None:
     agree = sum(h == j for h, j in zip(human, judged))
     print(f"{len(rows)} labelled; agreement {agree}/{len(rows)}; kappa 3-class {k3:.3f}, binary {k2:.3f}")
     confusion = Counter(zip(human, judged))
-    print("human \\ judge  " + "  ".join(f"{v:>9s}" for v in VERDICTS))
+    print("labels \\ judge " + "  ".join(f"{v:>9s}" for v in VERDICTS))
     for h in VERDICTS:
         print(f"{h:>13s}  " + "  ".join(f"{confusion[(h, j)]:9d}" for j in VERDICTS))
-    out = Path("results/p4_judge_kappa.json")
     out.write_text(json.dumps({"n": len(rows), "agreement": agree, "kappa_3class": k3, "kappa_binary": k2,
                                "confusion": {f"{h}|{j}": c for (h, j), c in confusion.items()}}, indent=2) + "\n")
     disagree = [(r["aid"], labels[r["aid"]], r["judge"]["verdict"], r["judge"]["reason"]) for r in rows
