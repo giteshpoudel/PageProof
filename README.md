@@ -54,7 +54,8 @@ PageProof measures how much OCR quality decides RAG answer quality. Most RAG dem
 
 ```bash
 uv sync --extra demo
+uv run python demo/export.py        # build demo/bundle from the corpus and saved runs
 uv run --extra demo streamlit run demo/app.py
 ```
 
-The demo browses the saved test answers at every damage level, with the page image highlighted. Asking your own question needs `DEEPSEEK_API_KEY` in `.env`. The corpus and indexes are rebuilt with the `pageproof` CLI (`corpus-build`, `ocr-tesseract`, `index-build`).
+The demo browses the saved test answers at every damage level, with the page image highlighted. Asking your own question needs `DEEPSEEK_API_KEY` in `.env`. `demo/export.py --space build/space` also lays out a Hugging Face Space (Docker, Streamlit + Pillow only, no API calls). The corpus and indexes are rebuilt with the `pageproof` CLI (`corpus-build`, `ocr-tesseract`, `index-build`).
