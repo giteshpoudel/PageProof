@@ -108,6 +108,7 @@ def main(out: Path = DEMO / "bundle", space: Path | None = None, workers: int = 
             shutil.rmtree(space)
         shutil.copytree(DEMO / "space", space)
         shutil.copy(DEMO / "static" / "index.html", space / "index.html")
+        shutil.copy(ROOT / "LICENSE", space / "LICENSE")
         shutil.copytree(out, space / "bundle")
         print(f"Space -> {space}")
 

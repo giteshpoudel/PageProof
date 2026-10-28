@@ -2,6 +2,8 @@
 
 Ask questions about scanned books and get answers you can check against the page.
 
+**Live demo:** [huggingface.co/spaces/giteshpoudel/pageproof](https://huggingface.co/spaces/giteshpoudel/pageproof): browse the saved test answers at every damage level, with the page highlighted.
+
 PageProof measures how much OCR quality decides RAG answer quality. Most RAG demos start from clean text. Here the text comes from OCR of page images with known damage, every page keeps its exact source text, and each answer cites the page it came from.
 
 > **Status:** evals in progress. The numbers below are from **run 1 of 3** on the 150 held-out test questions, Tesseract only. Runs 2–3 and the Unlimited-OCR (vision-language model) source are still to come. Plan: [OCR_PROJECT_PLAN.md](OCR_PROJECT_PLAN.md).
@@ -59,3 +61,7 @@ uv run --extra demo streamlit run demo/app.py
 ```
 
 The demo browses the saved test answers at every damage level, with the page image highlighted. Asking your own question needs `DEEPSEEK_API_KEY` in `.env`. `demo/export.py --space build/space` also lays out a static Hugging Face Space: `demo/static/index.html` shows the same saved results in plain HTML and JavaScript, with no server, model or API calls. The corpus and indexes are rebuilt with the `pageproof` CLI (`corpus-build`, `ocr-tesseract`, `index-build`).
+
+## License
+
+MIT ([LICENSE](LICENSE)). The book texts are public domain, from Project Gutenberg.
