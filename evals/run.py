@@ -136,12 +136,25 @@ def bootstrap(per_q: dict[str, float], n: int = 2000) -> tuple[float, float, flo
     return sum(vals) / len(vals), means[int(0.025 * n)], means[int(0.975 * n) - 1]
 
 
+def with_memorized(rows: list[dict]) -> list[dict]:
+    """Set `memorized` from these runs' own closed-book answers (correct in at least half of them).
+    The flag stored at answer time came from question selection, where 38 of 376 closed-book
+    answers were cut off by a 3,000-token limit; it's only the fallback."""
+    closed = defaultdict(list)
+    for r in rows:
+        if r["mode"] == "closed":
+            closed[r["qid"]].append(r["verdict"] == "correct")
+    return [r | {"memorized": sum(closed[r["qid"]]) / len(closed[r["qid"]]) >= 0.5} if closed[r["qid"]] else r
+            for r in rows]
+
+
 @app.command()
 def summary(runs: str = "") -> None:
     """runs: comma-separated run numbers to include (default all), e.g. --runs 1 while later runs are incomplete."""
     rows = read_jsonl(OUT)
     if runs:
         rows = [r for r in rows if str(r["run"]) in runs.split(",")]
+    rows = with_memorized(rows)
     cells = defaultdict(list)
     for r in rows:
         cells[(r["mode"], r["source"], r["level"])].append(r)
