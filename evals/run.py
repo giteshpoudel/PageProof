@@ -79,12 +79,13 @@ def _one(task) -> dict | None:
         if mode == "closed":
             data, usage = complete_json(CLOSED_SYSTEM, q["question"], model=config.llm_model(), max_tokens=12000)
             answer, citations, retrieved = str((data or {}).get("answer", "")), [], []
+            quote, quote_page = "", ""
             tokens = (usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
         else:
             results = (search(q["question"], source, level, k=5) if mode == "full"
                        else gold_passages(q, source, level))
             a = answer_from(q["question"], results)
-            answer, citations = a.answer, a.citations
+            answer, citations, quote, quote_page = a.answer, a.citations, a.quote, a.quote_page
             retrieved = [r.chunk.page_id for r in results]
             tokens = (a.prompt_tokens, a.completion_tokens)
         j = judge(q["question"], q["answer"], q["evidence"], answer)
@@ -92,6 +93,7 @@ def _one(task) -> dict | None:
         row = {"key": key(run, mode, source, level, q["qid"]), "run": run, "mode": mode, "source": source,
                "level": level, "qid": q["qid"], "book_id": q["book_id"],
                "memorized": q["closed_book"]["verdict"] == "correct", "answer": answer, "citations": citations,
+               "quote": quote, "quote_page": quote_page,
                "retrieved": retrieved, "gold_retrieved": bool(gold & set(retrieved)) if mode == "full" else None,
                "gold_cited": bool(gold & set(citations)), "exact_match": exact_match(q["answer"], answer),
                "verdict": j["verdict"], "refused": j["refused"], "reason": j["reason"],

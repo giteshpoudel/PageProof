@@ -37,6 +37,9 @@ vlm = [
 
 # Client for the vLLM server on the rented GPU
 gpu = ["openai>=1.60"]
+demo = [
+    "streamlit>=1.50",
+]
 
 [project.scripts]
 pageproof = "pageproof.cli:app"
