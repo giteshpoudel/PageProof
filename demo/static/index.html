@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PageProof</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<style>
+:root {
+  --bg: #f7f6f2; --surface: #ffffff; --ink: #1d1d1b; --ink-2: #55534d; --muted: #8a877f;
+  --line: #e2dfd6; --accent: #2a78d6; --hl-fill: rgba(255, 210, 0, .35); --hl-line: #dc7800;
+  --good: #1f7a3d; --warn: #9a6a00; --bad: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161614; --surface: #201f1c; --ink: #ecebe6; --ink-2: #b9b6ad; --muted: #85827a;
+    --line: #34322d; --accent: #6aa8f0; --good: #5cc27e; --warn: #e0b040; --bad: #f07a70;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161614; --surface: #201f1c; --ink: #ecebe6; --ink-2: #b9b6ad; --muted: #85827a;
+  --line: #34322d; --accent: #6aa8f0; --good: #5cc27e; --warn: #e0b040; --bad: #f07a70;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+.lede { color: var(--ink-2); margin: 0 0 20px; }
+.controls { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px; }
+label { display: block; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
+select { width: 100%; padding: 8px; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; }
+.levels { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.levels button { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.levels button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+h2 { font-size: 20px; margin: 0 0 4px; }
+.meta { color: var(--ink-2); font-size: 14px; margin: 0 0 16px; }
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+.card h3 { font-size: 14px; margin: 0 0 8px; }
+.card blockquote { margin: 0 0 8px; padding-left: 10px; border-left: 3px solid var(--line); }
+.small { font-size: 13px; color: var(--ink-2); }
+.v-correct { color: var(--good); font-weight: 600; } .v-partial { color: var(--warn); font-weight: 600; }
+.v-incorrect { color: var(--bad); font-weight: 600; }
+.page { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 16px; }
+canvas { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; display: block; }
+pre { margin: 0; white-space: pre-wrap; font: 13px/1.45 ui-monospace, Menlo, monospace; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; padding: 12px; max-height: 460px; overflow: auto; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
+tr.current td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
+@media (max-width: 760px) { .controls, .cards, .page { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>PageProof</h1>
+  <p class="lede">Answers about scanned books that you can check against the page, and how OCR damage changes them.
+    Pick a question and how damaged the scan is; every answer here is a saved result from the evaluation runs.</p>
+  <div class="controls">
+    <div><label for="book">Book</label><select id="book"></select></div>
+    <div><label for="question">Question</label><select id="question"></select></div>
+  </div>
+  <label>OCR text the system reads</label>
+  <div class="levels" id="levels" role="group" aria-label="OCR text the system reads"></div>
+  <div id="view"><p class="small">Loading…</p></div>
+  <footer>150 held-out test questions over six public-domain books, Tesseract OCR at six damage levels,
+    judged by deepseek-v4-pro. This page runs no model and makes no API calls.</footer>
+</main>
+<script>
+const CONDITIONS = [["clean", 0, "Clean text"], ...[0,1,2,3,4,5].map(l => ["tesseract", l, `Tesseract, level ${l}`])];
+const MODES = { full: "Search, then answer", oracle: "Given the right page" };
+const VERDICT = { correct: "✓ correct", partial: "~ partial", incorrect: "✗ incorrect" };
+const HOW = {
+  found: "Highlighted: the passage holding the reference answer.",
+  from_clean: "Highlighted: the passage holding the reference answer (too damaged to find directly; position taken from the clean page).",
+  none: "Passage not located; showing the whole page.",
+};
+const state = { book: null, qid: null, cond: CONDITIONS.length - 1 };
+let D;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const label = p => D.labels[p] || p;
+const pct = x => (x * 100).toFixed(1) + "%";
+const verdict = r => r ? `<span class="v-${r.verdict}">${VERDICT[r.verdict]}</span>` : "—";
+
+function fillQuestions() {
+  const qs = D.questions.filter(q => q.title === state.book);
+  $("question").innerHTML = qs.map(q => `<option value="${q.qid}">${esc(q.question)}</option>`).join("");
+  if (!qs.some(q => q.qid === state.qid)) state.qid = qs[0].qid;
+  $("question").value = state.qid;
+}
+
+function drawPage(canvas, src, box) {
+  const img = new Image();
+  img.onload = () => {
+    let y0 = 0, y1 = img.height;
+    if (box) { y0 = Math.max(0, box[1] - 240); y1 = Math.min(img.height, box[3] + 240); }
+    canvas.width = img.width; canvas.height = y1 - y0;
+    const g = canvas.getContext("2d");
+    g.drawImage(img, 0, y0, img.width, y1 - y0, 0, 0, img.width, y1 - y0);
+    if (box) {
+      const [bx0, by0, bx1, by1] = box;
+      const r = [bx0 - 4, by0 - 3 - y0, bx1 - bx0 + 8, by1 - by0 + 6];
+      g.fillStyle = "rgba(255,210,0,.35)"; g.fillRect(...r);
+      g.strokeStyle = "#dc7800"; g.lineWidth = 3; g.strokeRect(...r);
+    }
+  };
+  img.src = src;
+}
+
+function render() {
+  const q = D.questions.find(q => q.qid === state.qid);
+  const [source, level, condLabel] = CONDITIONS[state.cond];
+  const page = D.pages[q.source_page];
+  const shown = page[String(level)];
+  const get = (mode, s, lv) => D.answers[`${q.qid}|${mode}|${s}|${lv}`];
+
+  $("levels").querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", i === state.cond));
+
+  const cards = Object.entries(MODES).map(([mode, mlabel]) => {
+    const r = get(mode, source, level);
+    if (!r) return `<div class="card"><h3>${mlabel} · ${condLabel}</h3><p class="small">Not in the saved runs.</p></div>`;
+    const cited = r.citations.map(label).join(", ") || "none";
+    const top5 = mode === "full" ? `<div class="small">Right page in the top 5 search results: ${r.gold_retrieved ? "yes" : "<b>no</b>"}</div>` : "";
+    return `<div class="card"><h3>${mlabel} · ${condLabel}</h3><blockquote>${esc(r.answer)}</blockquote>
+      <div class="small">Judge: ${verdict(r)} · cites ${esc(cited)}</div>${top5}</div>`;
+  }).join("");
+
+  const side = source === "tesseract"
+    ? `<h3 style="font-size:14px;margin:0 0 8px">What Tesseract read · ${pct(shown.cer)} character error rate</h3><pre>${esc(shown.ocr_text)}</pre>`
+    : `<p><b>Clean text</b>: the system reads the book's own text, with no OCR errors. The image is the undamaged page.</p>`;
+
+  const rows = CONDITIONS.map(([s, lv, lab], i) => `<tr class="${i === state.cond ? "current" : ""}">
+    <td>${lab}</td><td>${s === "clean" ? "0%" : pct(page[String(lv)].cer)}</td>
+    <td>${verdict(get("full", s, lv))}</td><td>${verdict(get("oracle", s, lv))}</td></tr>`).join("");
+
+  $("view").innerHTML = `
+    <h2>${esc(q.question)}</h2>
+    <p class="meta">Reference answer: <b>${esc(q.answer)}</b> · from ${esc(label(q.source_page))}</p>
+    <div class="cards">${cards}</div>
+    <div class="page">
+      <figure style="margin:0"><canvas id="pageimg" aria-label="Page image"></canvas>
+        <figcaption class="small" style="margin-top:6px">${HOW[shown.how]}</figcaption></figure>
+      <div>${side}</div>
+    </div>
+    <h3 style="font-size:15px;margin:0 0 8px">Same question at every level</h3>
+    <div class="table-wrap"><table><thead><tr><th>OCR text</th><th>Page CER</th><th>${MODES.full}</th><th>${MODES.oracle}</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+  drawPage($("pageimg"), "bundle/" + shown.image, shown.box);
+}
+
+fetch("bundle/data.json").then(r => r.json()).then(d => {
+  D = d;
+  const books = [...new Set(D.questions.map(q => q.title))].sort();
+  $("book").innerHTML = books.map(b => `<option>${esc(b)}</option>`).join("");
+  state.book = books[0];
+  $("levels").innerHTML = CONDITIONS.map(([, , lab], i) => `<button type="button" data-i="${i}">${lab}</button>`).join("");
+  $("levels").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { state.cond = +b.dataset.i; render(); } });
+  $("book").addEventListener("change", e => { state.book = e.target.value; fillQuestions(); render(); });
+  $("question").addEventListener("change", e => { state.qid = e.target.value; render(); });
+  fillQuestions(); render();
+}).catch(() => { $("view").innerHTML = `<p class="small">Couldn't load the demo data (bundle/data.json).</p>`; });
+</script>
+</body>
+</html>

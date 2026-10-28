@@ -58,4 +58,4 @@ uv run python demo/export.py        # build demo/bundle from the corpus and save
 uv run --extra demo streamlit run demo/app.py
 ```
 
-The demo browses the saved test answers at every damage level, with the page image highlighted. Asking your own question needs `DEEPSEEK_API_KEY` in `.env`. `demo/export.py --space build/space` also lays out a Hugging Face Space (Docker, Streamlit + Pillow only, no API calls). The corpus and indexes are rebuilt with the `pageproof` CLI (`corpus-build`, `ocr-tesseract`, `index-build`).
+The demo browses the saved test answers at every damage level, with the page image highlighted. Asking your own question needs `DEEPSEEK_API_KEY` in `.env`. `demo/export.py --space build/space` also lays out a static Hugging Face Space: `demo/static/index.html` shows the same saved results in plain HTML and JavaScript, with no server, model or API calls. The corpus and indexes are rebuilt with the `pageproof` CLI (`corpus-build`, `ocr-tesseract`, `index-build`).

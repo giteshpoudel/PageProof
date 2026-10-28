@@ -1,7 +1,7 @@
 """Build the demo's data bundle: everything the app needs, with no corpus, index or Tesseract.
 
     uv run python demo/export.py                      # -> demo/bundle/
-    uv run python demo/export.py --space build/space  # also lay out a Hugging Face Space (Docker)
+    uv run python demo/export.py --space build/space  # also lay out a static Hugging Face Space
 
 For each test question's source page at every damage level: the page image (JPEG), what Tesseract
 read and its CER, and the highlight box for the evidence quote, found ahead of time. Answers are the
@@ -107,7 +107,7 @@ def main(out: Path = DEMO / "bundle", space: Path | None = None, workers: int = 
         if space.exists():
             shutil.rmtree(space)
         shutil.copytree(DEMO / "space", space)
-        shutil.copy(DEMO / "app.py", space / "app.py")
+        shutil.copy(DEMO / "static" / "index.html", space / "index.html")
         shutil.copytree(out, space / "bundle")
         print(f"Space -> {space}")
 

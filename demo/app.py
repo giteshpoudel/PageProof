@@ -4,7 +4,8 @@
     uv run --extra demo streamlit run demo/app.py
 
 Two modes:
-- Browse saved results: the 150 test questions, answered at every OCR damage level in the eval runs.
+- Browse saved results: the 150 test questions, answered at every OCR damage level in the eval runs
+  (demo/static/index.html is the same view as a static page, for the free Hugging Face Space).
   Reads only the bundle (demo/export.py), so it runs anywhere with Streamlit and Pillow.
 - Ask your own question: retrieves from one index, answers with DeepSeek and highlights the quote
   the model relied on. Shown only where the pageproof package and data are installed, and not when
