@@ -6,24 +6,24 @@ Ask questions about scanned books and get answers you can check against the page
 
 PageProof measures how much OCR quality decides RAG answer quality. Most RAG demos start from clean text. Here the text comes from OCR of page images with known damage, every page keeps its exact source text, and each answer cites the page it came from.
 
-> **Status:** evals in progress. The numbers below are from **run 1 of 3** on the 150 held-out test questions, Tesseract only. Runs 2–3 and the Unlimited-OCR (vision-language model) source are still to come. Plan: [OCR_PROJECT_PLAN.md](OCR_PROJECT_PLAN.md).
+> **Status:** Tesseract evals complete: **3 runs** over the 150 held-out test questions (6,750 judged answers). The Unlimited-OCR (vision-language model) source is still to come. Plan: [OCR_PROJECT_PLAN.md](OCR_PROJECT_PLAN.md).
 
 ![Answer accuracy vs OCR character error rate](results/p4_accuracy_vs_cer.png)
 
-## Results so far (run 1, preliminary)
+## Results (Tesseract, 3 runs)
 
 | OCR text the system reads | Median page CER | Search, then answer | Given the right page | Right page in top 5 |
 |---|---|---|---|---|
-| Clean text | 0% | 87.3% (82.0–92.7) | 100% | 89.3% |
-| Tesseract, levels 0–4 | 0–7.2% | 84.0–90.0% | 98.0–98.7% | 87.3–92.0% |
-| Tesseract, level 5 | 33.3% | **48.7%** (40.7–56.7) | **78.0%** | 69.3% |
+| Clean text | 0% | 87.8% (82.7–92.9) | 99.8% | 89.3% |
+| Tesseract, levels 0–4 | 0–7.2% | 83.8–89.3% | 97.8–98.9% | 87.3–92.0% |
+| Tesseract, level 5 | 33.3% | **48.0%** (40.7–55.8) | **76.4%** | 69.3% |
 | No pages (from memory) | — | 36.7% | — | — |
 
-95% bootstrap intervals over questions in brackets. Source: [results/p4_test_cells.csv](results/p4_test_cells.csv), [results/p4_accuracy_vs_cer.csv](results/p4_accuracy_vs_cer.csv).
+Each cell is 450 answers (150 questions × 3 runs); 95% bootstrap intervals over questions in brackets. The runs agree closely: per-run accuracy differs by at most 4 points in the cells checked (level 5 given the page: 74.0–78.0%), and 2,134 of 2,250 answers got the same verdict in all 3 runs. Source: [results/p4_test_cells.csv](results/p4_test_cells.csv), [results/p4_accuracy_vs_cer.csv](results/p4_accuracy_vs_cer.csv).
 
 - **Up to about 7% character error rate, OCR errors don't move accuracy.** Levels 0–4 are within each other's confidence intervals and match clean text.
-- **Past that, they hurt twice.** At 33% CER the model misreads the right page (100% → 78% when given it directly), and search finds the right page less often (89% → 69% in the top 5). Together: 87% → 49%.
-- **Memory doesn't hide the drop.** 55 of the 150 test questions can be answered with no pages at all. At level 5 those score 53%, the rest 46%.
+- **Past that, they hurt twice.** At 33% CER the model misreads the right page (99.8% → 76% when given it directly), and search finds the right page less often (89% → 69% in the top 5). Together: 88% → 48%.
+- **Memory doesn't hide the drop.** 49 of the 150 test questions were answered correctly with no pages in at least 2 of 3 runs. At level 5 those score 48%, the rest 48%: knowing the book doesn't rescue a bad scan.
 - **Noise is the damage that matters most.** At level 5, removing only the noise effect cuts Tesseract CER from 33% to 1.6%; removing blur, JPEG or low resolution leaves 9–20% ([results/p2_leave_one_out.csv](results/p2_leave_one_out.csv)).
 
 ## How it works
@@ -49,7 +49,7 @@ PageProof measures how much OCR quality decides RAG answer quality. Most RAG dem
 ## Limitations
 
 - Synthetic damage on rendered pages, not real scans; Latin script only; no handwriting.
-- One OCR source so far (Tesseract), one run so far.
+- One OCR source so far (Tesseract).
 - The judge is checked against a second model, not yet against human labels.
 
 ## Try it

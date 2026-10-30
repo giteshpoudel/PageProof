@@ -1,6 +1,6 @@
 """Answer accuracy against the gold page's measured CER, the headline curve.
 
-    uv run python evals/curves.py --runs 1    # -> results/p4_accuracy_vs_cer.csv and .png
+    uv run python evals/curves.py            # all 3 runs; -> results/p4_accuracy_vs_cer.csv and .png
 
 The x-axis is each answer's gold-page CER (Tesseract at that answer's level), binned, not the
 level number, so levels whose pages overlap in CER fall in the same bins. Clean text is CER 0.
@@ -60,7 +60,7 @@ def ci(groups: dict[str, list[bool]], n: int = 2000) -> tuple[float, float, floa
 
 
 @app.command()
-def main(runs: str = "1") -> None:
+def main(runs: str = "1,2,3") -> None:
     gold = {q["qid"]: q["gold_pages"] for q in read_jsonl(QUESTIONS)}
     cers = gold_cer()
     rows = [r for r in read_jsonl(ANSWERS) if str(r["run"]) in runs.split(",")]
@@ -135,7 +135,7 @@ def plot(series, clean, closed_acc, runs) -> None:
     ax.tick_params(length=0)
     ax.set_xlabel("Character error rate of the page holding the answer (Tesseract, binned)")
     ax.set_ylabel("Answers judged correct")
-    ax.set_title(f"Answer accuracy vs OCR error, 150 test questions (run {runs})", loc="left", color=INK,
+    ax.set_title(f"Answer accuracy vs OCR error, 150 test questions × " + ("3 runs" if runs == "1,2,3" else f"run {runs}"), loc="left", color=INK,
                  fontsize=11.5, pad=12)
     ax.legend(loc="lower left", frameon=False, labelcolor=INK2)
     fig.tight_layout()
