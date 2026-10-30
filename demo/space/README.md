@@ -16,4 +16,4 @@ Pick a question about one of six public-domain books and an OCR damage level. Yo
 
 All answers are saved results from the project's evaluation runs (150 held-out test questions, Tesseract OCR at six damage levels). The page is static: it runs no model and makes no API calls.
 
-Code, method and results: see the PageProof repository. The book texts are public domain (Project Gutenberg); everything else here is MIT-licensed.
+Code, method and results: [github.com/giteshpoudel/PageProof](https://github.com/giteshpoudel/PageProof). The book texts are public domain (Project Gutenberg); everything else here is MIT-licensed.
