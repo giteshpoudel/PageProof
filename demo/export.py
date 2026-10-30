@@ -3,8 +3,8 @@
     uv run python demo/export.py                      # -> demo/bundle/
     uv run python demo/export.py --space build/space  # also lay out a static Hugging Face Space
 
-For each test question's source page at every damage level: the page image (JPEG), what Tesseract
-read and its CER, and the highlight box for the evidence quote, found ahead of time. Answers are the
+For each test question's source page at every damage level: the page image (JPEG), what each OCR
+source (Tesseract; Unlimited-OCR once the GPU run exists) read and its CER, and the highlight box for the evidence quote, found ahead of time. Answers are the
 saved eval runs (the lowest-numbered run per question and condition).
 """
 
@@ -18,6 +18,7 @@ import typer
 from PIL import Image
 
 from pageproof.config import DATA
+from pageproof.index.store import SOURCE_FILES, SOURCE_LABELS, ocr_sources
 from pageproof.qa.locate import locate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,8 +61,9 @@ def main(out: Path = DEMO / "bundle", space: Path | None = None, workers: int = 
         f"select page_id, title, page_no from '{DATA}/corpus/pages.parquet'").fetchall()}
     imgs = {(p, lv): path for p, lv, path in duckdb.sql(
         f"select page_id, level, path from '{DATA}/corpus/images.parquet' where \"set\" = 'level'").fetchall()}
-    ocr = {(p, lv): (text, cer) for p, lv, text, cer in duckdb.sql(f"""
-        select i.page_id, i.level, r.plain, r.cer from '{DATA}/ocr/tesseract.parquet' r
+    sources = ocr_sources()
+    ocr = {(s, p, lv): (text, cer) for s in sources for p, lv, text, cer in duckdb.sql(f"""
+        select i.page_id, i.level, r.plain, r.cer from '{DATA}/ocr/{SOURCE_FILES[s]}' r
         join '{DATA}/corpus/images.parquet' i using (image_id) where i."set" = 'level'""").fetchall()}
 
     tasks = [(p, lv, str(ROOT / imgs[(p, lv)]), str(ROOT / imgs[(p, 0)]), q["evidence"])
@@ -79,9 +81,10 @@ def main(out: Path = DEMO / "bundle", space: Path | None = None, workers: int = 
                 shutil.copy(src, out / "img" / name)
             else:
                 Image.open(src).convert("RGB").save(out / "img" / name, quality=JPEG_QUALITY)
-            text, cer = ocr[(p, lv)]
             box, how = boxes[(p, lv)]
-            levels[lv] = {"image": f"img/{name}", "ocr_text": text, "cer": cer, "box": box, "how": how}
+            levels[lv] = {"image": f"img/{name}", "box": box, "how": how,
+                          "ocr": {s: {"text": ocr[(s, p, lv)][0], "cer": ocr[(s, p, lv)][1]}
+                                  for s in sources if (s, p, lv) in ocr}}
         pages[p] = levels
 
     answers = {}
@@ -95,9 +98,11 @@ def main(out: Path = DEMO / "bundle", space: Path | None = None, workers: int = 
     questions = [{k: q[k] for k in ("qid", "title", "question", "answer", "evidence", "source_page", "gold_pages")}
                  for q in qs]
     (out / "data.json").write_text(json.dumps(
-        {"questions": questions, "answers": answers, "pages": pages, "labels": labels}, ensure_ascii=False))
+        {"questions": questions, "answers": answers, "pages": pages, "labels": labels,
+         "sources": [{"id": s, "label": SOURCE_LABELS[s]} for s in sources]}, ensure_ascii=False))
     size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
     hows = [h for _, h in boxes.values()]
+    print(f"sources: {', '.join(sources)}")
     print(f"{len(questions)} questions, {len(answers)} answers, {len(pages) * len(LEVELS)} images, "
           f"{size / 1e6:.0f} MB -> {out}")
     print(f"highlights: {hows.count('found')} found, {hows.count('from_clean')} from the clean page, "

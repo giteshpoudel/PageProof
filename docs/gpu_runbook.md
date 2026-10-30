@@ -13,6 +13,8 @@ about $0.50–2 at Community Cloud prices. Stop the pod as soon as you finish.
 - **Start command:** leave it as a plain shell (e.g. `sleep infinity`); we start the server by hand.
 - Set a spending limit on the account first. Don't expose port 8000: the server has no API key and
   only needs to be reachable from inside the pod.
+- **SSH:** add the Mac mini's *public* key (`~/.ssh/id_ed25519.pub`; create one with `ssh-keygen -t ed25519` if it doesn't exist) under RunPod → Settings → SSH Public Keys
+  before deploying, and enable "SSH over exposed TCP". The pod's Connect tab then shows the IP and port.
 
 ## 2. Copy the repo and corpus up (from the Mac)
 
@@ -20,11 +22,13 @@ The corpus is built on the Mac and copied up, so both machines use byte-identica
 
 ```bash
 # from the Mac, in the PageProof folder (use the pod's SSH host and port from RunPod's "Connect" tab)
-rsync -av -e "ssh -p <port>" --exclude .venv --exclude models --exclude 'data/corpus/pdf' \
+rsync -av -e "ssh -p <port>" --exclude .env --exclude .git --exclude .venv --exclude models \
+    --exclude 'data/corpus/pdf' --exclude data/index --exclude demo/bundle --exclude build \
     ./ root@<pod-ip>:/workspace/PageProof/
 ```
 
-That sends the code, `data/corpus` (images + Parquet manifests, ~420 MB) and the P0 pages.
+That sends the code, `data/corpus` (images + Parquet manifests, ~420 MB) and the P0 pages. `.env` (the
+DeepSeek key) stays on the Mac: nothing on the pod calls DeepSeek.
 
 ## 3. Start the vLLM server (on the pod)
 
@@ -72,11 +76,25 @@ uv run python scripts/p0_feasibility.py --label cuda --skip-tesseract
 
 ## 6. Bring results back (from the Mac) and stop the pod
 
+Copy back only the new outputs, so nothing newer on the Mac is overwritten:
+
 ```bash
-rsync -av -e "ssh -p <port>" root@<pod-ip>:/workspace/PageProof/data/ocr/ data/ocr/
-rsync -av -e "ssh -p <port>" root@<pod-ip>:/workspace/PageProof/data/p0/ocr/unlimited-cuda data/p0/ocr/
-rsync -av -e "ssh -p <port>" root@<pod-ip>:/workspace/PageProof/results/ results/
+P='ssh -p <port>'; POD=root@<pod-ip>:/workspace/PageProof
+rsync -av -e "$P" $POD/data/ocr/unlimited-vllm.parquet data/ocr/
+rsync -av -e "$P" $POD/data/p0/ocr/unlimited-cuda data/p0/ocr/
+rsync -av -e "$P" $POD/results/p2_throughput.json results/
 uv run python scripts/p0_parity.py --a unlimited-mac --b unlimited-cuda
 ```
 
-Then **stop the pod** in RunPod. Idle time is the main cost risk; the volume keeps the weights.
+Check the files arrived, then **terminate the pod and delete its volume** in RunPod. A stopped pod's
+volume still bills ($0.20/GB-month when stopped, so about $6/month for 30 GB; prices checked 2026-10-30), and nothing on it is needed once the outputs are on the Mac.
+
+## 7. Back on the Mac
+
+```bash
+uv run python scripts/p2_summary.py                                   # CER per source x level
+uv run pageproof index build --source unlimited-ocr-vllm --levels 0-5 # 6 search indexes
+uv run python evals/run.py answers --workers 12                        # adds Unlimited-OCR cells (off-peak)
+uv run python evals/run.py summary && uv run python evals/curves.py
+uv run python demo/export.py --space build/space
+```

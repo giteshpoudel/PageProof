@@ -26,7 +26,7 @@ import typer
 from pageproof import config
 from pageproof.evals.judge import exact_match, judge
 from pageproof.index.chunking import Chunk
-from pageproof.index.store import page_texts
+from pageproof.index.store import indexed_sources, page_texts
 from pageproof.llm import complete_json
 from pageproof.qa.answer import answer_from
 from pageproof.qa.retrieve import SearchResult, search
@@ -35,7 +35,8 @@ app = typer.Typer(no_args_is_help=True)
 EVALS = Path(__file__).resolve().parent
 QUESTIONS = EVALS / "questions.jsonl"
 OUT = EVALS / "runs" / "answers.jsonl"
-CELLS = [("clean", 0)] + [("tesseract", lv) for lv in range(6)]
+# clean text plus every OCR source that has been indexed (Tesseract; Unlimited-OCR after the GPU run)
+CELLS = [("clean", 0)] + [(s, lv) for s in indexed_sources() for lv in range(6)]
 RUNS = 3
 SEED = 20261026
 CLOSED_SYSTEM = """Answer the question about a book from memory, in one sentence.
@@ -114,6 +115,7 @@ def answers(split: str = "test", runs: int = RUNS, workers: int = 10) -> None:
     OUT.parent.mkdir(exist_ok=True)
     qs = [q for q in read_jsonl(QUESTIONS) if q["split"] == split]
     done = {r["key"] for r in read_jsonl(OUT)}
+    print("cells: clean + " + ", ".join(sorted({s for s, _ in CELLS} - {"clean"})), flush=True)
     for run in range(1, runs + 1):
         tasks = [(run, "closed", "none", 0, q) for q in qs]
         tasks += [(run, mode, s, lv, q) for mode in ("full", "oracle") for s, lv in CELLS for q in qs]

@@ -21,6 +21,19 @@ QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 MODEL_LOCK = threading.Lock()
 
 SOURCE_FILES = {"tesseract": "tesseract.parquet", "unlimited-ocr-vllm": "unlimited-vllm.parquet"}
+SOURCE_LABELS = {"clean": "Clean text", "tesseract": "Tesseract", "unlimited-ocr-vllm": "Unlimited-OCR"}
+LEVELS = range(6)
+
+
+def ocr_sources() -> list[str]:
+    """OCR sources whose output exists on disk, in a fixed order (Tesseract first)."""
+    return [s for s, f in SOURCE_FILES.items() if (DATA / "ocr" / f).exists()]
+
+
+def indexed_sources() -> list[str]:
+    """OCR sources with a search index at every level, i.e. ready for evals."""
+    have = set(connect().table_names())
+    return [s for s in ocr_sources() if all(table_name(s, lv) in have for lv in LEVELS)]
 
 
 def table_name(source: str, level: int) -> str:

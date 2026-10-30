@@ -36,7 +36,18 @@ def data_url(path: str) -> str:
     return f"data:{mime};base64,{base64.b64encode(Path(path).read_bytes()).decode()}"
 
 
-async def ocr_one(client: AsyncOpenAI, sem: asyncio.Semaphore, item: tuple) -> dict:
+async def ocr_one(client: AsyncOpenAI, sem: asyncio.Semaphore, item: tuple, tries: int = 3) -> dict | None:
+    """One page; retried on errors. None if every try failed (the page stays pending for a rerun)."""
+    for attempt in range(1, tries + 1):
+        try:
+            return await _ocr_once(client, sem, item)
+        except Exception as e:  # noqa: BLE001 - logged, retried, then left for the next run
+            print(f"  {item[0]}: try {attempt} failed ({type(e).__name__}: {e})", flush=True)
+            await asyncio.sleep(5 * attempt)
+    return None
+
+
+async def _ocr_once(client: AsyncOpenAI, sem: asyncio.Semaphore, item: tuple) -> dict:
     image_id, page_id, path, text = item
     async with sem:
         t = time.perf_counter()
@@ -84,19 +95,23 @@ async def main() -> None:
 
     client = AsyncOpenAI(api_key="EMPTY", base_url=args.base_url, timeout=3600)
     sem = asyncio.Semaphore(args.concurrency)
-    start, done, tokens = time.perf_counter(), 0, 0
+    start, done, tokens, failed = time.perf_counter(), 0, 0, 0
     for i in range(0, len(todo), args.batch):
-        rows = await asyncio.gather(*(ocr_one(client, sem, item) for item in todo[i:i + args.batch]))
-        append_rows(out, rows)
+        results = await asyncio.gather(*(ocr_one(client, sem, item) for item in todo[i:i + args.batch]))
+        rows = [r for r in results if r is not None]
+        failed += len(results) - len(rows)
+        if rows:
+            append_rows(out, rows)
         done += len(rows)
         tokens += sum(r["completion_tokens"] or 0 for r in rows)
         wall = time.perf_counter() - start
-        print(f"  {done}/{len(todo)}  {done / wall:.2f} pages/s  {tokens / wall:.0f} tokens/s")
+        print(f"  {done}/{len(todo)}  {done / wall:.2f} pages/s  {tokens / wall:.0f} tokens/s"
+              + (f"  ({failed} failed, rerun to retry)" if failed else ""), flush=True)
 
     wall = time.perf_counter() - start
     pps = done / wall if wall else 0.0
     report = {
-        "gpu": gpu_name(), "pages": done, "wall_seconds": round(wall, 1),
+        "gpu": gpu_name(), "pages": done, "failed": failed, "wall_seconds": round(wall, 1),
         "pages_per_second": round(pps, 3), "output_tokens_per_second": round(tokens / wall, 1) if wall else 0,
         "concurrency": args.concurrency, "gpu_price_per_hour": args.gpu_price,
         "usd_per_1000_pages": round(args.gpu_price / 3600 / pps * 1000, 4) if pps and args.gpu_price else None,

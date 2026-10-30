@@ -32,6 +32,8 @@ label { display: block; font-size: 13px; color: var(--ink-2); margin-bottom: 4px
 select { width: 100%; padding: 8px; font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line); border-radius: 6px; }
 .levels { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.levels .group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-right: 10px; }
+.levels .group span { font-size: 12px; color: var(--muted); margin-right: 2px; }
 .levels button { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 .levels button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -70,11 +72,11 @@ footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
   <label>OCR text the system reads</label>
   <div class="levels" id="levels" role="group" aria-label="OCR text the system reads"></div>
   <div id="view"><p class="small">Loading…</p></div>
-  <footer>150 held-out test questions over six public-domain books, Tesseract OCR at six damage levels,
+  <footer>150 held-out test questions over six public-domain books, OCR at six damage levels (each source shown above),
     judged by deepseek-v4-pro. This page runs no model and makes no API calls.</footer>
 </main>
 <script>
-const CONDITIONS = [["clean", 0, "Clean text"], ...[0,1,2,3,4,5].map(l => ["tesseract", l, `Tesseract, level ${l}`])];
+let CONDITIONS = [];  // [source, level, label, sourceLabel], built from the bundle's OCR sources
 const MODES = { full: "Search, then answer", oracle: "Given the right page" };
 const VERDICT = { correct: "✓ correct", partial: "~ partial", incorrect: "✗ incorrect" };
 const HOW = {
@@ -82,7 +84,7 @@ const HOW = {
   from_clean: "Highlighted: the passage holding the reference answer (too damaged to find directly; position taken from the clean page).",
   none: "Passage not located; showing the whole page.",
 };
-const state = { book: null, qid: null, cond: CONDITIONS.length - 1 };
+const state = { book: null, qid: null, cond: 0 };
 let D;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -117,7 +119,7 @@ function drawPage(canvas, src, box) {
 
 function render() {
   const q = D.questions.find(q => q.qid === state.qid);
-  const [source, level, condLabel] = CONDITIONS[state.cond];
+  const [source, level, condLabel, sourceLabel] = CONDITIONS[state.cond];
   const page = D.pages[q.source_page];
   const shown = page[String(level)];
   const get = (mode, s, lv) => D.answers[`${q.qid}|${mode}|${s}|${lv}`];
@@ -133,12 +135,13 @@ function render() {
       <div class="small">Judge: ${verdict(r)} · cites ${esc(cited)}</div>${top5}</div>`;
   }).join("");
 
-  const side = source === "tesseract"
-    ? `<h3 style="font-size:14px;margin:0 0 8px">What Tesseract read · ${pct(shown.cer)} character error rate</h3><pre>${esc(shown.ocr_text)}</pre>`
+  const read = shown.ocr[source];
+  const side = source !== "clean"
+    ? `<h3 style="font-size:14px;margin:0 0 8px">What ${esc(sourceLabel)} read · ${pct(read.cer)} character error rate</h3><pre>${esc(read.text)}</pre>`
     : `<p><b>Clean text</b>: the system reads the book's own text, with no OCR errors. The image is the undamaged page.</p>`;
 
   const rows = CONDITIONS.map(([s, lv, lab], i) => `<tr class="${i === state.cond ? "current" : ""}">
-    <td>${lab}</td><td>${s === "clean" ? "0%" : pct(page[String(lv)].cer)}</td>
+    <td>${lab}</td><td>${s === "clean" ? "0%" : pct(page[String(lv)].ocr[s].cer)}</td>
     <td>${verdict(get("full", s, lv))}</td><td>${verdict(get("oracle", s, lv))}</td></tr>`).join("");
 
   $("view").innerHTML = `
@@ -161,7 +164,12 @@ fetch("bundle/data.json").then(r => r.json()).then(d => {
   const books = [...new Set(D.questions.map(q => q.title))].sort();
   $("book").innerHTML = books.map(b => `<option>${esc(b)}</option>`).join("");
   state.book = books[0];
-  $("levels").innerHTML = CONDITIONS.map(([, , lab], i) => `<button type="button" data-i="${i}">${lab}</button>`).join("");
+  CONDITIONS = [["clean", 0, "Clean text", "Clean text"]];
+  for (const src of D.sources) for (let l = 0; l < 6; l++) CONDITIONS.push([src.id, l, `${src.label}, level ${l}`, src.label]);
+  const btn = i => `<button type="button" data-i="${i}">${CONDITIONS[i][0] === "clean" ? "Clean text" : "Level " + CONDITIONS[i][1]}</button>`;
+  $("levels").innerHTML = `<div class="group">${btn(0)}</div>` + D.sources.map(src =>
+    `<div class="group"><span>${esc(src.label)}</span>${CONDITIONS.map((c, i) => c[0] === src.id ? btn(i) : "").join("")}</div>`).join("");
+  state.cond = CONDITIONS.findIndex(c => c[0] === D.sources[0].id && c[1] === 5);
   $("levels").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { state.cond = +b.dataset.i; render(); } });
   $("book").addEventListener("change", e => { state.book = e.target.value; fillQuestions(); render(); });
   $("question").addEventListener("change", e => { state.qid = e.target.value; render(); });

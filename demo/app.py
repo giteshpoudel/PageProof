@@ -23,7 +23,6 @@ from PIL import Image, ImageDraw
 HERE = Path(__file__).resolve().parent
 BUNDLE = Path(os.environ.get("PAGEPROOF_BUNDLE", HERE / "bundle"))
 LIVE = importlib.util.find_spec("pageproof") is not None and os.environ.get("PAGEPROOF_LIVE", "1") != "0"
-CONDITIONS = [("clean", 0, "Clean text")] + [("tesseract", lv, f"Tesseract, damage level {lv}") for lv in range(6)]
 MODE_LABELS = {"full": "Search, then answer", "oracle": "Given the right page"}
 VERDICT_ICON = {"correct": "✅ correct", "partial": "🟡 partial", "incorrect": "❌ incorrect"}
 HOW_CAPTION = {"found": "Highlighted: {what}",
@@ -36,6 +35,16 @@ st.set_page_config(page_title="PageProof", page_icon="📖", layout="wide")
 @st.cache_data
 def data() -> dict:
     return json.loads((BUNDLE / "data.json").read_text())
+
+
+def conditions() -> list[tuple[str, int, str]]:
+    """Clean text, then each OCR source in the bundle at levels 0-5."""
+    return [("clean", 0, "Clean text")] + [(s["id"], lv, f"{s['label']}, damage level {lv}")
+                                          for s in data().get("sources", []) for lv in range(6)]
+
+
+def source_label(source: str) -> str:
+    return next((s["label"] for s in data().get("sources", []) if s["id"] == source), source)
 
 
 def page_label(page_id: str) -> str:
@@ -62,9 +71,10 @@ def browse() -> None:
     with st.sidebar:
         book = st.selectbox("Book", sorted({q["title"] for q in qs}))
         q = st.selectbox("Question", [q for q in qs if q["title"] == book], format_func=lambda q: q["question"])
-        source, level, label = CONDITIONS[st.select_slider(
-            "OCR text the system reads", range(len(CONDITIONS)), value=len(CONDITIONS) - 1,
-            format_func=lambda i: CONDITIONS[i][2])]
+        conds = conditions()
+        source, level, label = conds[st.select_slider(
+            "OCR text the system reads", range(len(conds)), value=min(6, len(conds) - 1),
+            format_func=lambda i: conds[i][2])]
     page = d["pages"][q["source_page"]]
     st.subheader(q["question"])
     st.caption(f"Reference answer: **{q['answer']}** · from {page_label(q['source_page'])}")
@@ -86,24 +96,25 @@ def browse() -> None:
     left, right = st.columns([3, 2])
     with left:
         st.image(boxed(str(BUNDLE / shown["image"]), tuple(shown["box"]) if shown["box"] else None),
-                 use_container_width=True,
+                 width="stretch",
                  caption=HOW_CAPTION[shown["how"]].format(what="the passage holding the reference answer"))
     with right:
-        if source == "tesseract":
-            st.markdown(f"**What Tesseract read** · {shown['cer']:.1%} character error rate")
-            st.text_area("OCR text", shown["ocr_text"], height=420, label_visibility="collapsed")
+        if source != "clean":
+            read = shown["ocr"][source]
+            st.markdown(f"**What {source_label(source)} read** · {read['cer']:.1%} character error rate")
+            st.text_area("OCR text", read["text"], height=420, label_visibility="collapsed")
         else:
             st.markdown("**Clean text**: the system reads the book's own text, with no OCR errors. "
                         "The image is the undamaged page.")
     st.markdown("**Same question at every level**")
     rows = []
-    for s, lv, lab in CONDITIONS:
-        row = {"OCR text": lab, "Page CER": "0%" if s == "clean" else f"{page[str(lv)]['cer']:.1%}"}
+    for s, lv, lab in conditions():
+        row = {"OCR text": lab, "Page CER": "0%" if s == "clean" else f"{page[str(lv)]['ocr'][s]['cer']:.1%}"}
         for mode, mlabel in MODE_LABELS.items():
             r = answers.get(f"{q['qid']}|{mode}|{s}|{lv}")
             row[mlabel] = VERDICT_ICON[r["verdict"]] if r else "—"
         rows.append(row)
-    st.dataframe(rows, hide_index=True, use_container_width=True)
+    st.dataframe(rows, hide_index=True, width="stretch")
 
 
 @st.cache_data(show_spinner="Finding the quote on the page...")
@@ -132,8 +143,9 @@ def live() -> None:
     from pageproof.qa.answer import ask
 
     with st.sidebar:
-        source, level, label = CONDITIONS[st.select_slider(
-            "OCR text to search", range(len(CONDITIONS)), value=0, format_func=lambda i: CONDITIONS[i][2])]
+        conds = conditions()
+        source, level, label = conds[st.select_slider(
+            "OCR text to search", range(len(conds)), value=0, format_func=lambda i: conds[i][2])]
     st.caption("Books: Pride and Prejudice, The Adventures of Sherlock Holmes, Paradise Lost, War and Peace, "
                "The Wealth of Nations, On the Origin of Species (65 pages of each).")
     question = st.text_input("Your question", placeholder="How much money did Wickham receive in lieu of the living?")
@@ -149,7 +161,7 @@ def live() -> None:
     st.caption(f"{label} · cites {', '.join(page_label(p) for p in a.citations) or 'none'}")
     if a.found and a.quote_page:
         image, how = live_highlight(a.quote_page, level, a.quote)
-        st.image(image, use_container_width=True, caption=HOW_CAPTION[how].format(what=f'"{a.quote}"'))
+        st.image(image, width="stretch", caption=HOW_CAPTION[how].format(what=f'"{a.quote}"'))
 
 
 st.title("PageProof")

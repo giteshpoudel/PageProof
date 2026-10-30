@@ -13,10 +13,11 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from pageproof.config import DATA
 from pageproof.ocr.metrics import cer, wer
 
-OCR_DIR = Path("data/ocr")
-CORPUS = Path("data/corpus")
+OCR_DIR = DATA / "ocr"
+CORPUS = DATA / "corpus"
 
 
 def pending_images(source: str, out: Path, corpus: Path = CORPUS) -> list[tuple]:
