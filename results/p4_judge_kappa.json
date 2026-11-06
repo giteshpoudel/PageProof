@@ -1,0 +1,11 @@
+{
+  "n": 8,
+  "agreement": 7,
+  "kappa_3class": 0.6923076923076923,
+  "kappa_binary": 1.0,
+  "confusion": {
+    "correct|correct": 6,
+    "partial|partial": 1,
+    "incorrect|partial": 1
+  }
+}

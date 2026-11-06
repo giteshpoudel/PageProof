@@ -37,7 +37,7 @@ Each cell is 450 answers (150 questions × 3 runs); 95% bootstrap intervals over
 
 - **200 questions, 50 dev / 150 test.** Drafted by an LLM from the clean pages, each with an exact evidence quote and a gold page set found independently of the retriever. Mechanical checks rejected drafts whose quote wasn't on the page or whose question gave away the answer.
 - **Question audit.** Two models looked for reasons to reject each question; 4 of 200 were flagged and 2 of those were rejected by hand. A random 20 of the questions that passed were checked by hand: 0 rejected, so at most 13.9% of the unchecked questions are bad (exact one-sided 95% bound).
-- **Judge check.** On 60 sampled answers (half judged not correct), a second grader from a different model family agreed with the judge on all 60. The judge and a plain string match agree on 52 of 60; the 8 where they don't are waiting for a human label.
+- **Judge check.** On 60 sampled answers (half judged not correct), a second grader from a different model family agreed with the judge on all 60. The judge and a plain string match agree on 52 of 60; the author graded the other 8 blind to the judge and agreed on 7. The one difference was partial vs incorrect, so on correct vs not correct, the label accuracy counts, the judge matched the person on all 8 ([results/p4_judge_kappa.json](results/p4_judge_kappa.json)).
 
 ## What the evals caught
 
@@ -50,7 +50,7 @@ Each cell is 450 answers (150 questions × 3 runs); 95% bootstrap intervals over
 
 - Synthetic damage on rendered pages, not real scans; Latin script only; no handwriting.
 - One OCR source so far (Tesseract).
-- The judge is checked against a second model, not yet against human labels.
+- The judge is checked by a second model on 60 answers but by a person on only the 8 contested ones.
 
 ## Try it
 
